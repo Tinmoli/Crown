@@ -1,0 +1,52 @@
+pluginManagement {
+    resolutionStrategy {
+        eachPlugin {
+            if (requested.id.id == "net.fabricmc.fabric-loom") {
+                useModule("net.fabricmc:fabric-loom:${requested.version}")
+            } else if (requested.id.id
+                    == "net.fabricmc.fabric-loom-remap") {
+                useModule("net.fabricmc:fabric-loom:${requested.version}")
+            }
+        }
+    }
+    repositories {
+        gradlePluginPortal()
+        maven {
+            name = "Fabric"
+            url = "https://maven.fabricmc.net/"
+        }
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)
+}
+
+rootProject.name = "Crown"
+
+include "common:domain"
+include "common:config"
+include "common:storage"
+include "common:runtime"
+
+def supportedCrownVersions = [
+        "26.1", "26.1.1", "26.1.2", "26.2"
+]
+def requestedCrownVersions = providers.gradleProperty("crownVersions")
+        .getOrElse(String.join(",", supportedCrownVersions))
+        .split(",")
+        .collect { it.trim() }
+        .findAll { !it.isEmpty() && it != "none" }
+        .unique()
+def unsupportedCrownVersions = requestedCrownVersions.findAll {
+    !supportedCrownVersions.contains(it)
+}
+if (!unsupportedCrownVersions.isEmpty()) {
+    throw new GradleException("Unsupported crownVersions: "
+            + unsupportedCrownVersions.join(", ")
+            + "; supported: " + supportedCrownVersions.join(", ")
+            + ", or none")
+}
+requestedCrownVersions.each { version ->
+    include "versions:${version}"
+}

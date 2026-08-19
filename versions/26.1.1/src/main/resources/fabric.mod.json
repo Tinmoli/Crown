@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "crown",
+  "version": "${version}",
+  "name": "Crown",
+  "description": "A server-side title shop and warehouse mod for Fabric.",
+  "authors": [
+    "XiaoMu"
+  ],
+  "license": "CC0-1.0",
+  "environment": "server",
+  "entrypoints": {
+    "server": [
+      "dev.xiaomu.crown.fabric.CrownFabricMod"
+    ]
+  },
+  "mixins": ["crown.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": "26.1.1",
+    "java": ">=25",
+    "fabric-api": ">=0.145.4",
+    "mint": ">=0.1.0-"
+  },
+  "suggests": {
+    "luckperms": "*",
+    "placeholder-api": "*"
+  },
+  "custom": {
+    "crown:storage-schema": 1,
+    "crown:mint-api-major": 1
+  }
+}

@@ -1,0 +1,12 @@
+plugins {
+    id "net.fabricmc.fabric-loom" version "1.16.3"
+}
+
+// Only values that differ by Minecraft target belong in this module.
+ext.crownMinecraftVersion = "26.2"
+ext.crownFabricApiVersion = "0.155.2+26.2"
+ext.crownSguiVersion = "2.1.0+26.2"
+ext.crownPlaceholderApiVersion = "3.1.0-beta.1+26.2"
+ext.crownUsesPermissionsApi = true
+
+apply from: rootProject.file("gradle/crown-26-version.gradle")

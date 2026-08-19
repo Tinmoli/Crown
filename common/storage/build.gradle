@@ -1,0 +1,17 @@
+plugins {
+    id "java-library"
+}
+
+dependencies {
+    api project(":common:domain")
+    api project(":common:config")
+
+    implementation "com.zaxxer:HikariCP:${hikari_version}"
+    runtimeOnly "org.xerial:sqlite-jdbc:${sqlite_jdbc_version}"
+    runtimeOnly "com.mysql:mysql-connector-j:${mysql_connector_version}"
+
+    testImplementation platform("org.junit:junit-bom:${junit_version}")
+    testImplementation "org.junit.jupiter:junit-jupiter"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+    testRuntimeOnly "org.xerial:sqlite-jdbc:${sqlite_jdbc_version}"
+}

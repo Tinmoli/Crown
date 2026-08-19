@@ -1,0 +1,106 @@
+# Crown 管理员商品管理 GUI
+config-version: 3
+
+screen:
+  type: "GENERIC_9X6"
+  title: "&cCrown 商品管理"
+
+content-slots:
+  - "10-16"
+  - "19-25"
+  - "28-34"
+  - "37-43"
+
+filler:
+  enabled: true
+  item: "minecraft:black_stained_glass_pane"
+  name: ""
+  hide-tooltip: true
+
+text-values:
+  free: "免费"
+  permanent: "永久"
+  days: "{days} 天"
+  unlimited: "无限"
+  none: "无"
+  payment-mint: "金币"
+  payment-title-coin: "称号币"
+  payment-free: "免费"
+  detail-price: "&e价格：{price} {price_unit}"
+  payment-price: "&e价格：{price} {price_unit}"
+  detail-id: "&7ID：{definition_id}"
+  detail-category: "&7分类：&f{category}"
+  detail-duration: "&7期限：{duration}"
+  enabled: "&a已启用"
+  disabled: "&c已禁用"
+  toggle-hint: "&e点击切换"
+  toggle-visible: "&7启用时同时显示"
+  change-icon: "&e更换图标"
+  change-icon-hint: "&7手持目标物品后点击"
+  current-icon: "&7当前：&f{icon}"
+  sale-settings: "&e销售设置（只读）"
+  sale-start: "&7开始：&f{value}"
+  sale-end: "&7结束：&f{value}"
+  stock: "&7库存：&f{value}"
+  player-limit: "&7单人限购：&f{value}"
+  sale-hint: "&7使用 /crown title sale-* 修改"
+  payment: "&e支付设置（只读）"
+  payment-type: "&7类型：&f{type}"
+  payment-hint: "&7使用 /crown title payment 修改"
+  duration: "&e期限设置（只读）"
+  duration-hint: "&7使用 /crown title duration 修改"
+  delete: "&c删除商品"
+  delete-no-refund: "&c不退款"
+  delete-irreversible: "&7不可撤销"
+  text-permission: "&e文本与权限"
+  permission: "&7权限：&f{permission}"
+  text-hint: "&7左键点击后，在聊天中输入 text=、prefix=、suffix= 或 permission="
+  back: "&e返回"
+  refresh: "&e刷新"
+  close: "&c关闭"
+
+buttons:
+  previous:
+    slot: 45
+    item: "minecraft:arrow"
+    name: "&f上一页"
+    lore: []
+  create:
+    slot: 46
+    item: "minecraft:anvil"
+    name: "&a创建商品草稿"
+    lore:
+      - "&7用 /crown title create <ID> 创建"
+  close:
+    slot: 49
+    item: "minecraft:barrier"
+    name: "&c关闭"
+    lore: []
+  reload:
+    slot: 50
+    item: "minecraft:repeater"
+    name: "&e重载配置"
+    lore: []
+  next:
+    slot: 53
+    item: "minecraft:arrow"
+    name: "&f下一页"
+    lore: []
+
+title-items:
+  enabled:
+    item: "{title_icon}"
+    name: "{title_preview}"
+    glow: true
+    lore:
+      - "&7ID：{definition_id}"
+      - "&a已启用"
+      - "&e左键编辑"
+  disabled:
+    item: "{title_icon}"
+    name: "{title_preview}"
+    glow: false
+    lore:
+      - "&7ID：{definition_id}"
+      - "&c已禁用"
+      - "&e左键编辑"

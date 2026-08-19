@@ -1,0 +1,120 @@
+plugins {
+    id "base"
+}
+
+def crownVersionProjects = [
+        "26.1", "26.1.1", "26.1.2", "26.2"
+].collect { ":versions:${it}" }.findAll { findProject(it) != null }
+
+allprojects {
+    group = providers.gradleProperty("maven_group").getOrElse("dev.xiaomu.crown")
+    version = providers.gradleProperty("mod_version").getOrElse("0.1.0-SNAPSHOT")
+
+    repositories {
+        mavenLocal()
+        mavenCentral()
+        maven {
+            name = "Fabric"
+            url = "https://maven.fabricmc.net/"
+        }
+        maven {
+            name = "Nucleoid"
+            url = "https://maven.nucleoid.xyz/"
+        }
+    }
+}
+
+subprojects {
+    plugins.withType(JavaPlugin).configureEach {
+        java {
+            toolchain.languageVersion = JavaLanguageVersion.of(25)
+            sourceCompatibility = JavaVersion.VERSION_21
+            targetCompatibility = JavaVersion.VERSION_21
+        }
+
+        tasks.withType(JavaCompile).configureEach {
+            options.release = 21
+            options.encoding = "UTF-8"
+            options.compilerArgs.addAll(["-Xlint:all", "-Werror"])
+        }
+
+        tasks.withType(Test).configureEach {
+            useJUnitPlatform()
+            testLogging {
+                events "failed", "skipped"
+                exceptionFormat "full"
+            }
+        }
+
+        tasks.withType(Jar).configureEach {
+            reproducibleFileOrder = true
+            preserveFileTimestamps = false
+        }
+    }
+}
+
+tasks.register("buildAllVersions") {
+    group = "build"
+    description = "构建四个独立的 26.x 版本，并把发布 JAR 收集到 dist。"
+    if (crownVersionProjects.size() != 4) {
+        throw new GradleException("buildAllVersions requires all four version "
+                + "projects; omit -PcrownVersions or list all supported versions")
+    }
+    dependsOn crownVersionProjects.collect { "${it}:jar" }
+
+    doLast {
+        delete layout.projectDirectory.dir("dist")
+        copy {
+            crownVersionProjects.each { projectPath ->
+                from project(projectPath).tasks.named("jar")
+                        .flatMap { it.archiveFile }
+            }
+            into layout.projectDirectory.dir("dist")
+        }
+    }
+}
+
+tasks.register("verifyVersionSources") {
+    group = "verification"
+    description = "验证四个 26.x 版本的共用 Fabric 源码保持一致；Mixin 可独立变化。"
+
+    doLast {
+        def versions = ["26.1", "26.1.1", "26.1.2", "26.2"]
+        def baseline = layout.projectDirectory.dir(
+                "versions/${versions.first()}/src/main/java").asFile
+        def relativeJavaFiles = fileTree(baseline) {
+            include "**/*.java"
+            exclude "**/mixin/**"
+        }.files.collect { baseline.toPath().relativize(it.toPath()).toString()
+        }.sort()
+
+        def failures = []
+        versions.tail().each { targetVersion ->
+            def target = layout.projectDirectory.dir(
+                    "versions/${targetVersion}/src/main/java").asFile
+            def targetFiles = fileTree(target) {
+                include "**/*.java"
+                exclude "**/mixin/**"
+            }.files.collect { target.toPath().relativize(it.toPath()).toString()
+            }.sort()
+            if (targetFiles != relativeJavaFiles) {
+                failures << "${targetVersion}: Java file set differs from 26.1"
+                return
+            }
+            relativeJavaFiles.each { relative ->
+                def baselineFile = new File(baseline, relative)
+                def targetFile = new File(target, relative)
+                if (baselineFile.getText("UTF-8")
+                        != targetFile.getText("UTF-8")) {
+                    failures << "${targetVersion}: ${relative} differs from 26.1"
+                }
+            }
+        }
+        if (!failures.isEmpty()) {
+            throw new GradleException("Version source parity failed:\n"
+                    + failures.join("\n"))
+        }
+        logger.lifecycle("Verified {} non-Mixin Fabric source files across {} 26.x versions.",
+                relativeJavaFiles.size(), versions.size())
+    }
+}

@@ -1,0 +1,90 @@
+# Crown 称号商城 GUI
+config-version: 3
+
+screen:
+  type: "GENERIC_9X6"
+  title: "<gradient:#FFD700:#FF8C00>Crown 称号商城</gradient>"
+
+# 商品允许占用的槽位，支持单个数字或闭区间。
+content-slots:
+  - "10-16"
+  - "19-25"
+  - "28-34"
+  - "37-43"
+
+filler:
+  enabled: true
+  item: "minecraft:black_stained_glass_pane"
+  name: ""
+  hide-tooltip: true
+
+text-values:
+  free: "免费"
+  permanent: "永久"
+  days: "{days} 天"
+  unlimited: "无限"
+  payment-mint: "金币"
+  payment-title-coin: "称号币"
+  payment-free: "免费"
+  status-disabled: "已禁用"
+  status-hidden: "不可见"
+  status-not_on_sale: "不在销售期"
+  status-permission_denied: "缺少权限"
+  status-out_of_stock: "库存不足"
+  status-player_limit_reached: "已达到个人限购"
+
+buttons:
+  previous:
+    slot: 45
+    item: "minecraft:arrow"
+    name: "&f上一页"
+    lore:
+      - "&7第 {page}/{pages} 页"
+  custom:
+    slot: 46
+    item: "minecraft:name_tag"
+    name: "&#55FFFF自定义称号"
+    lore:
+      - "&7输入并购买自己的称号文本"
+      - "&e价格：{custom_price}"
+  close:
+    slot: 49
+    item: "minecraft:barrier"
+    name: "&c关闭"
+    lore: []
+  warehouse:
+    slot: 50
+    item: "minecraft:chest"
+    name: "&#FFAA00称号仓库"
+    lore: []
+  next:
+    slot: 53
+    item: "minecraft:arrow"
+    name: "&f下一页"
+    lore:
+      - "&7第 {page}/{pages} 页"
+
+title-items:
+  available:
+    item: "{title_icon}"
+    name: "{title_preview}"
+    glow: false
+    lore:
+      - "{title_description}"
+      - ""
+      - "&e价格：{mint_price} {mint_unit}"
+      - "&e称号币价格：{title_coin_price} {title_coin_unit}"
+      - "&7有效期：{duration}"
+      - "&a左键购买"
+  owned:
+    item: "{title_icon}"
+    name: "{title_preview}"
+    glow: true
+    lore:
+      - "&a已经拥有"
+  unavailable:
+    item: "minecraft:barrier"
+    name: "{title_preview}"
+    glow: false
+    lore:
+      - "&c{unavailable_reason}"

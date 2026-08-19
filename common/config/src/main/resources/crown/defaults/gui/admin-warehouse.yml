@@ -1,0 +1,75 @@
+# Crown 管理员玩家仓库查看 GUI
+config-version: 3
+
+screen:
+  type: "GENERIC_9X6"
+  title: "&c玩家仓库：{player}"
+
+content-slots:
+  - "10-16"
+  - "19-25"
+  - "28-34"
+  - "37-43"
+
+filler:
+  enabled: true
+  item: "minecraft:black_stained_glass_pane"
+  name: ""
+  hide-tooltip: true
+
+text-values:
+  permanent: "永久"
+  unlimited: "无限"
+  source-purchase: "购买"
+  source-admin: "管理员发放"
+  source-card: "称号卡"
+
+buttons:
+  previous:
+    slot: 45
+    item: "minecraft:arrow"
+    name: "&f上一页"
+    lore: []
+  set-default:
+    slot: 46
+    item: "minecraft:name_tag"
+    name: "&a设为默认"
+    lore: []
+  set-none:
+    slot: 48
+    item: "minecraft:paper"
+    name: "&7设为NONE"
+    lore: []
+  close:
+    slot: 49
+    item: "minecraft:barrier"
+    name: "&c关闭"
+    lore: []
+  grant:
+    slot: 50
+    item: "minecraft:emerald"
+    name: "&a发放称号"
+    lore: []
+  next:
+    slot: 53
+    item: "minecraft:arrow"
+    name: "&f下一页"
+    lore: []
+
+title-items:
+  active:
+    item: "minecraft:name_tag"
+    name: "{title_preview}"
+    glow: false
+    lore:
+      - "&7条目：{entry_id}"
+      - "&7到期：{expires}"
+      - "&7左键替玩家佩戴"
+      - "&7右键回收"
+  deleted:
+    item: "minecraft:barrier"
+    name: "{title_preview}"
+    glow: false
+    lore:
+      - "&c已软删除"
+      - "&7删除者：{deleted_by}"

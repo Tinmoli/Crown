@@ -1,0 +1,95 @@
+/*
+ * Crown 26.x version convention.
+ *
+ * Each versions/<mc>/build.gradle must declare the version-specific values
+ * below before applying this script:
+ *   crownMinecraftVersion, crownFabricApiVersion, crownSguiVersion,
+ *   crownPlaceholderApiVersion, crownUsesPermissionsApi.
+ *
+ * This keeps Minecraft API differences local to each version directory while
+ * centralising dependencies and source-layout rules that must stay identical.
+ */
+
+def required = [
+        "crownMinecraftVersion",
+        "crownFabricApiVersion",
+        "crownSguiVersion",
+        "crownPlaceholderApiVersion",
+        "crownUsesPermissionsApi"
+]
+required.each { key ->
+    if (!project.ext.has(key)) {
+        throw new GradleException("${project.path} must declare ${key} before applying crown-26-version.gradle")
+    }
+}
+
+def mcVersion = project.ext.crownMinecraftVersion
+def fabricApiVersion = project.ext.crownFabricApiVersion
+def sguiVersion = project.ext.crownSguiVersion
+def placeholderApiVersion = project.ext.crownPlaceholderApiVersion
+def usesPermissionsApi = project.ext.crownUsesPermissionsApi
+
+base {
+    archivesName = "crown-fabric-${mcVersion}"
+}
+
+loom {
+    runs {
+        serverSmoke {
+            server()
+            name = "Crown ${mcVersion} server smoke test"
+            runDir = "run-smoke"
+        }
+    }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${mcVersion}"
+    implementation "net.fabricmc:fabric-loader:${loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${fabricApiVersion}"
+    implementation "eu.pb4:sgui:${sguiVersion}"
+    compileOnly "eu.pb4:placeholder-api:${placeholderApiVersion}"
+    compileOnly "dev.xiaomu.mint:mint-api:${mint_api_version}"
+
+    implementation project(":common:domain")
+    implementation project(":common:config")
+    implementation project(":common:storage")
+    implementation project(":common:runtime")
+
+    include project(":common:domain")
+    include project(":common:config")
+    include project(":common:storage")
+    include project(":common:runtime")
+    include "eu.pb4:sgui:${sguiVersion}"
+    include "org.snakeyaml:snakeyaml-engine:${snakeyaml_engine_version}"
+    include "com.google.code.gson:gson:${gson_version}"
+    include "com.zaxxer:HikariCP:${hikari_version}"
+    include "org.xerial:sqlite-jdbc:${sqlite_jdbc_version}"
+    include "com.mysql:mysql-connector-j:${mysql_connector_version}"
+
+    if (usesPermissionsApi) {
+        implementation "me.lucko:fabric-permissions-api:${permissions_api_version}"
+        include "me.lucko:fabric-permissions-api:${permissions_api_version}"
+    }
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(25)
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 25
+}
+
+processResources {
+    inputs.property "version", project.version
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version
+    }
+}
+
+// Fabric sources are owned by the current versions/<mc> module. Do not add a
+// shared source directory here: each supported Minecraft version is maintained
+// and compiled as a fully independent codebase.

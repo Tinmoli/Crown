@@ -1,0 +1,46 @@
+# Crown 主菜单 GUI
+config-version: 3
+
+screen:
+  type: "GENERIC_9X3"
+  title: "&#FFD700Crown &f称号中心"
+
+filler:
+  enabled: true
+  item: "minecraft:black_stained_glass_pane"
+  name: ""
+  hide-tooltip: true
+
+text-values:
+  free: "免费"
+  permanent: "永久"
+  days: "{days} 天"
+  unlimited: "无限"
+  payment-mint: "金币"
+  payment-title-coin: "称号币"
+  payment-free: "免费"
+
+buttons:
+  shop:
+    slot: 11
+    item: "minecraft:emerald"
+    name: "&#55FF55称号商城"
+    lore:
+      - "&7浏览并购买服务器称号"
+  warehouse:
+    slot: 13
+    item: "minecraft:chest"
+    name: "&#FFAA00称号仓库"
+    lore:
+      - "&7佩戴、卸下或删除称号"
+  custom:
+    slot: 15
+    item: "minecraft:name_tag"
+    name: "&#55FFFF自定义称号"
+    lore:
+      - "&7输入并购买自己的称号文本"
+  close:
+    slot: 22
+    item: "minecraft:barrier"
+    name: "&c关闭"
+    lore: []

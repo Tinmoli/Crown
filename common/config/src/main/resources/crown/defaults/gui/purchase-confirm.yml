@@ -1,0 +1,64 @@
+# Crown 普通称号购买确认 GUI
+config-version: 3
+
+screen:
+  type: "GENERIC_9X3"
+  title: "&e确认购买称号"
+
+filler:
+  enabled: true
+  item: "minecraft:gray_stained_glass_pane"
+  name: ""
+  hide-tooltip: true
+
+text-values:
+  free: "免费"
+  permanent: "永久"
+  days: "{days} 天"
+  unlimited: "无限"
+  payment-mint: "金币"
+  payment-title-coin: "称号币"
+  payment-free: "免费"
+  status-disabled: "已禁用"
+  status-hidden: "不可见"
+  status-not_on_sale: "不在销售期"
+  status-permission_denied: "缺少权限"
+  status-out_of_stock: "库存不足"
+  status-player_limit_reached: "已达到个人限购"
+  # 预览卡片按商品实际启用的付款方式展开以下价格行。
+  mint-price-line: "&7价格：&f{mint_price} {mint_unit}"
+  title-coin-price-line: "&7称号币价格：&f{title_coin_price} {title_coin_unit}"
+
+buttons:
+  preview:
+    slot: 13
+    item: "{title_icon}"
+    name: "{title_preview}"
+    lore:
+      - "{title_description}"
+      - ""
+      - "{payment_price_lines}"
+      - "&7有效期：{duration}"
+  pay-mint:
+    slot: 11
+    item: "minecraft:emerald"
+    name: "&a使用{mint_unit}购买"
+    lore:
+      - "&7价格：&f{mint_price} {mint_unit}"
+  pay-title-coin:
+    slot: 12
+    item: "minecraft:gold_nugget"
+    name: "&e使用{title_coin_unit}购买"
+    lore:
+      - "&7价格：&f{title_coin_price} {title_coin_unit}"
+  cancel:
+    slot: 15
+    item: "minecraft:red_concrete"
+    name: "&c取消"
+    lore: []
+  processing:
+    slot: 11
+    item: "minecraft:clock"
+    name: "&7处理中"
+    lore:
+      - "&7请勿重复操作"

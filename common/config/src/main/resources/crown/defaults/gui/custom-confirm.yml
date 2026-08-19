@@ -1,0 +1,65 @@
+# Crown 玩家自定义称号购买确认 GUI
+config-version: 3
+
+screen:
+  type: "GENERIC_9X3"
+  title: "&#55FFFF确认自定义称号"
+
+filler:
+  enabled: true
+  item: "minecraft:light_blue_stained_glass_pane"
+  name: ""
+  hide-tooltip: true
+
+text-values:
+  free: "免费"
+  permanent: "永久"
+  days: "{days} 天"
+  unlimited: "无限"
+  payment-mint: "金币"
+  payment-title-coin: "称号币"
+  payment-free: "免费"
+  admin-free: "免费发放"
+  mint-price-line: "&7价格：&f{mint_price} {mint_unit}"
+  title-coin-price-line: "&7称号币价格：&f{title_coin_price} {title_coin_unit}"
+
+buttons:
+  preview:
+    slot: 13
+    item: "minecraft:name_tag"
+    name: "{title_preview}"
+    lore:
+      # {mint_price}、{title_coin_price}、{duration} 是 Crown GUI 变量，不是 PlaceholderAPI 变量。
+      # PlaceholderAPI 的 %crown:...% 仅用于聊天、TAB、记分板等外部格式。
+      - "&7文本源码：{title_source}"
+      # 仅展开 config.yml 中实际启用的付款方式。
+      - "{payment_price_lines}"
+      - "&7有效期：{duration}"
+  pay-mint:
+    slot: 11
+    item: "minecraft:emerald"
+    name: "&a使用{mint_unit}购买"
+    lore:
+      - "&7价格：&f{mint_price} {mint_unit}"
+  pay-title-coin:
+    slot: 12
+    item: "minecraft:gold_nugget"
+    name: "&e使用{title_coin_unit}购买"
+    lore:
+      - "&7价格：&f{title_coin_price} {title_coin_unit}"
+  reenter:
+    slot: 15
+    item: "minecraft:feather"
+    name: "&e重新输入"
+    lore: []
+  cancel:
+    slot: 22
+    item: "minecraft:barrier"
+    name: "&c取消"
+    lore: []
+  processing:
+    slot: 11
+    item: "minecraft:clock"
+    name: "&7处理中"
+    lore:
+      - "&7请勿重复操作"

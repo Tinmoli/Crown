@@ -1,0 +1,116 @@
+# Crown 核心配置
+# 修改后可执行 /crown reload 热重载；数据库连接类设置除外。
+config-version: 2
+
+# 界面与消息语言。默认支持 zh_cn 和 en_us。
+language: "zh_cn"
+
+# 服务器默认称号。默认称号不写入玩家仓库，也不会过期。
+default-title:
+  # 是否启用默认称号。
+  enabled: true
+  # 新玩家首次创建数据时是否选择默认称号。
+  equip-for-new-player: true
+  # 默认称号正文。
+  text: "萌新"
+  # 默认称号前缀。
+  prefix: "&7["
+  # 默认称号后缀。
+  suffix: "&7]"
+  # 仓库界面中使用的物品 ID。
+  icon: "minecraft:name_tag"
+
+# Crown 内置称号币。称号币只能由管理员管理，玩家不能互转。
+title-coin:
+  # 称号币名称。
+  name: "称号币"
+  # 称号币符号。
+  symbol: "✦"
+  # 可用变量：{amount}、{name}、{symbol}。
+  format: "{amount} {name}"
+  # 单个玩家允许持有的最大余额。
+  maximum-balance: 9223372036854775807
+
+# 玩家聊天输入式自定义称号商品。
+custom-title:
+  # 是否允许购买自定义称号。
+  enabled: true
+  duration:
+    # PERMANENT 表示永久；LIMITED 表示限时。
+    type: "PERMANENT"
+    # LIMITED 时必须为正数；PERMANENT 时必须为 0。
+    days: 0
+  # 可选支付方式。设置 enabled: false 或删除对应项即可关闭。
+  # 两项同时启用时，玩家在确认界面中二选一。
+  payment-options:
+    mint:
+      enabled: true
+      # 只填写价格数字，显示单位使用 purchase.mint-currency-name。
+      price: "1000.00"
+    title-coin:
+      enabled: true
+      # 只填写称号币数量，显示单位使用 title-coin.name。
+      price: "50"
+  # 玩家只输入正文，前后缀由服务器统一控制。
+  prefix: "&7["
+  suffix: "&7]"
+  # 正文最少和最多可见 Unicode 字符数。
+  minimum-length: 1
+  maximum-length: 16
+  # 是否允许十六进制 RGB。
+  allow-rgb: true
+  # 是否允许渐变标签。
+  allow-gradient: true
+  # 是否允许 &0～&f 和 &k～&r。
+  allow-formatting: true
+  # 聊天输入会话超时时间。
+  input-timeout-seconds: 60
+  # 输入以下完整文本时取消会话。
+  cancel-keywords:
+    - "取消"
+    - "cancel"
+  # 在移除格式标记后检查的禁用词。
+  forbidden-words: []
+
+# 称号展示设置。每个渠道可独立选择 placeholder、vanilla 或 disabled。
+# placeholder（默认）：Crown 只提供变量，由聊天/TAB/计分板模组显示。
+# vanilla：Crown 使用原版服务端机制直接显示。
+# disabled：Crown 不在该渠道主动显示，但变量仍然可以读取。
+display:
+  channels:
+    chat: "placeholder"
+    tab: "placeholder"
+    nametag: "placeholder"
+  # vanilla 模式使用的原版显示模板。
+  direct:
+    chat:
+      template: "{title} {player}: {message}"
+    tab:
+      template: "{title} {player}"
+    nametag:
+      template: "{title} {player}"
+
+# 购买与异步操作限制。
+purchase:
+  # 所有 titles.yml 和 custom-title 的 Mint 商品都使用此货币 ID。
+  # 不要在每个称号商品中重复填写 currency-id。
+  mint-currency: "mint:coin"
+  # 仅用于界面和消息显示，不参与 Mint 查找或扣款。
+  mint-currency-name: "金币"
+  # Mint 收款账户 ID。
+  mint-shop-account: "crown:shop"
+  # 单次经济操作超时时间。
+  operation-timeout-seconds: 15
+  # 每名玩家允许存在的未完成订单数。
+  maximum-pending-orders-per-player: 1
+
+# 防止恶意配置或玩家输入耗尽服务端资源。
+safety:
+  maximum-title-source-length: 512
+  maximum-visible-title-length: 64
+  maximum-gui-open-count-per-player: 1
+
+# 命令兼容设置。
+commands:
+  # 是否注册 /title 别名。默认关闭以减少命令冲突。
+  enable-title-alias: false

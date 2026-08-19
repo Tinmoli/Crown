@@ -1,0 +1,91 @@
+# Crown 玩家称号仓库 GUI
+config-version: 3
+
+screen:
+  type: "GENERIC_9X6"
+  title: "&#FFAA00我的称号仓库"
+
+content-slots:
+  - "10-16"
+  - "19-25"
+  - "28-34"
+  - "37-43"
+
+filler:
+  enabled: true
+  item: "minecraft:black_stained_glass_pane"
+  name: ""
+  hide-tooltip: true
+
+text-values:
+  free: "免费"
+  permanent: "永久"
+  days: "{days} 天"
+  unlimited: "无限"
+  source-purchase: "购买"
+  source-admin: "管理员发放"
+  source-card: "称号卡"
+
+buttons:
+  previous:
+    slot: 45
+    item: "minecraft:arrow"
+    name: "&f上一页"
+    lore:
+      - "&7第 {page}/{pages} 页"
+  default:
+    slot: 46
+    item: "minecraft:name_tag"
+    name: "&a使用默认称号"
+    lore:
+      - "&7默认：{default_title_preview}"
+  none:
+    slot: 48
+    item: "minecraft:paper"
+    name: "&7不显示称号"
+    lore:
+      - "&7不退回默认称号"
+  close:
+    slot: 49
+    item: "minecraft:barrier"
+    name: "&c关闭"
+    lore: []
+  shop:
+    slot: 50
+    item: "minecraft:emerald"
+    name: "&#55FF55称号商城"
+    lore: []
+  next:
+    slot: 53
+    item: "minecraft:arrow"
+    name: "&f下一页"
+    lore:
+      - "&7第 {page}/{pages} 页"
+
+title-items:
+  active:
+    item: "minecraft:name_tag"
+    name: "{title_preview}"
+    glow: false
+    lore:
+      - "&7条目：{entry_id}"
+      - "&7来源：{source}"
+      - "&7获取：{acquired_at}"
+      - "&7到期：{expires}"
+      - ""
+      - "&a左键佩戴"
+      - "&c右键删除"
+  equipped:
+    item: "minecraft:name_tag"
+    name: "{title_preview}"
+    glow: true
+    lore:
+      - "&a当前佩戴中"
+      - "&c右键删除"
+  expired:
+    item: "minecraft:clock"
+    name: "{title_preview}"
+    glow: false
+    lore:
+      - "&c已过期"
+      - "&c右键删除"

@@ -1,0 +1,58 @@
+# Crown 数据库存储配置
+# 首次安装建议保持 sqlite；切换后端前必须执行显式迁移命令。
+config-version: 1
+
+# 存储类型：sqlite 或 mysql。
+type: "sqlite"
+
+sqlite:
+  # 相对于游戏目录的 SQLite 数据库文件。
+  path: "config/crown/data/crown.db"
+  # SQLite 忙等待超时。
+  busy-timeout-millis: 5000
+  # 是否启用 WAL。
+  wal: true
+  # OFF、NORMAL、FULL 或 EXTRA。
+  synchronous: "NORMAL"
+  # Schema 或后端迁移前是否创建快照。
+  snapshot-before-migration: true
+  # 最多保留的自动 SQLite 快照数。
+  maximum-snapshots: 10
+
+mysql:
+  host: "127.0.0.1"
+  port: 3306
+  database: "crown"
+  username: "crown"
+  # 请务必修改默认密码。Crown 不会把密码写入日志。
+  password: "change-me"
+  # 只允许 1～24 个字母、数字或下划线。
+  table-prefix: "crown_"
+  # 自定义 JDBC 参数。此映射由用户管理，升级时不会删除额外参数。
+  parameters:
+    useSSL: false
+    allowPublicKeyRetrieval: false
+    serverTimezone: "UTC"
+    characterEncoding: "utf8"
+  pool:
+    minimum-idle: 1
+    maximum-size: 10
+    connection-timeout-millis: 5000
+    validation-timeout-millis: 3000
+    idle-timeout-millis: 600000
+    maximum-lifetime-millis: 1800000
+  # 破坏性 MySQL Schema 变更前要求管理员确认已完成外部备份。
+  require-manual-backup-for-destructive-migration: true
+
+migration:
+  # 是否在兼容升级时自动迁移当前后端 Schema。
+  auto-compatible-schema: true
+  # 旧后端有数据而目标为空时拒绝直接切换。
+  protect-empty-target: true
+  verify:
+    player-count: true
+    owned-title-count: true
+    title-coin-total: true
+    order-count: true
+    card-count: true
+    audit-count: true

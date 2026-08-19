@@ -1,0 +1,36 @@
+# Crown 仓库称号删除确认 GUI
+config-version: 3
+
+screen:
+  type: "GENERIC_9X3"
+  title: "&c确认删除称号"
+
+filler:
+  enabled: true
+  item: "minecraft:black_stained_glass_pane"
+  name: ""
+  hide-tooltip: true
+
+text-values:
+  permanent: "永久"
+  unlimited: "无限"
+
+buttons:
+  preview:
+    slot: 13
+    item: "minecraft:name_tag"
+    name: "{title_preview}"
+    lore:
+      - "&7条目：{entry_id}"
+      - "&c删除不退款"
+  confirm:
+    slot: 11
+    item: "minecraft:red_concrete"
+    name: "&c确认删除"
+    lore:
+      - "&7不可撤销"
+  cancel:
+    slot: 15
+    item: "minecraft:lime_concrete"
+    name: "&a保留称号"
+    lore: []

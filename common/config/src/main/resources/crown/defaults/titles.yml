@@ -1,0 +1,62 @@
+# Crown 称号商品配置。
+# Mint 商品只填写 price；货币 ID 统一使用 config.yml 的 purchase.mint-currency。
+# 普通商品只需填写 text、icon、description 和 payment-options。
+# 省略 duration 表示永久；省略 requirement 表示不要求权限；省略 sale 表示不限时、不限库存、不限购。
+config-version: 2
+
+titles:
+  veteran:
+    # 是否允许购买。false 时商城和命令购买都会拒绝。
+    enabled: true
+    # 是否在玩家商城显示。false 时仍可由管理员查看。
+    visible: true
+    # 称号正文，支持 & 颜色、&#RRGGBB 和 <gradient:#起始:#结束> 标签。
+    text: "<gradient:#FFD700:#FF8C00>资深玩家</gradient>"
+    # 显示在正文前后的文本，可留空。
+    prefix: "&7["
+    suffix: "&7]"
+    # 商城图标的 Minecraft 物品 ID。
+    icon: "minecraft:nether_star"
+    # 商城物品 Lore，可写多行。
+    description:
+      - "&7服务器资深玩家称号"
+    # 购买确认页的付款选项。玩家每次只能选择其中一种；顺序决定默认预览价格。
+    payment-options:
+      # Mint 金币付款选项。
+      mint:
+        # 该商品的十进制价格。
+        price: "1000.00"
+      # Crown 内置称号币价格，必须是正整数。
+      title-coin:
+        price: "50"
+
+  event_winner:
+    # 可购买且在商城显示。
+    enabled: true
+    visible: true
+    # 称号正文与显示图标。
+    text: "活动冠军"
+    prefix: ""
+    suffix: ""
+    icon: "minecraft:golden_helmet"
+    description:
+      - "&e限时 30 天"
+    # 限时称号的有效天数；不写此段即永久。
+    duration:
+      days: 30
+    # 本商品提供的两种付款选项；title-coin 放在前面表示默认预览称号币价格。
+    payment-options:
+      title-coin:
+        price: "50"
+      mint:
+        price: "1000.00"
+    # 购买此商品需要的权限。省略 requirement 表示不检查权限。
+    requirement:
+      permission: "crown.title.event_winner"
+      deny-if-missing-permission: true
+    # 仅在需要限时、库存或限购时配置。本例没有销售时间限制。
+    sale:
+      # 全服可购买数量；-1 表示不限库存。
+      global-stock: 100
+      # 每名玩家可购买数量；-1 表示不限购。
+      per-player-limit: 1
