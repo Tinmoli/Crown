@@ -23,12 +23,6 @@ Crown 是一个 Fabric **服务端**称号商城与仓库模组。玩家通过�
 - **可选**：LuckPerms（权限）、Text Placeholder API（称号变量）。
 - 默认存储 SQLite，可选 MySQL。
 
-发布 Mint API 到本地 Maven：
-
-```bat
-E:\XiaoMu\Mint\gradlew.bat :common:api:publishToMavenLocal
-```
-
 ## 构建
 
 ```bat
