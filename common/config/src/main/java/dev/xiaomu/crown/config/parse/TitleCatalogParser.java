@@ -15,23 +15,15 @@ import dev.xiaomu.crown.domain.text.CrownTextParser;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 /** 把 titles.yml 的开放映射转换为完整商品目录。 */
 public final class TitleCatalogParser {
-    public CatalogSettings parse(
-            Map<String, Object> root,
-            CoreSettings.Safety safety
-    ) {
-        return parse(root, safety, NamespacedId.parse("mint:coin"));
-    }
 
     public CatalogSettings parse(
             Map<String, Object> root,
-            CoreSettings.Safety safety,
-            NamespacedId mintCurrency
+            CoreSettings.Safety safety
     ) {
         Map<String, Object> configured = YamlValues.map(root, "titles");
         CrownTextParser textParser = new CrownTextParser(
@@ -47,7 +39,7 @@ public final class TitleCatalogParser {
             Map<String, Object> values =
                     ConfigParsing.mapValue(entry.getValue(), path);
             TitleDefinition definition = parseDefinition(
-                    id, values, path, safety, mintCurrency, textParser);
+                    id, values, path, safety, textParser);
             if (definitions.put(id, definition) != null) {
                 throw new ConfigValueException(
                         path, "duplicate title definition");
@@ -61,7 +53,6 @@ public final class TitleCatalogParser {
             Map<String, Object> values,
             String path,
             CoreSettings.Safety safety,
-            NamespacedId mintCurrency,
             CrownTextParser textParser
     ) {
         String prefix = optionalString(values, "prefix", "");
@@ -82,9 +73,7 @@ public final class TitleCatalogParser {
         }
 
         DurationPolicy duration = parseDuration(values, path);
-        List<PaymentPolicy> paymentOptions = parsePaymentOptions(
-                values, path, mintCurrency);
-        PaymentPolicy payment = paymentOptions.getFirst();
+        PaymentPolicy payment = CoreSettingsParser.parsePrice(values, "price");
         SalePolicy sale = parseSale(values, path + ".sale");
 
         return ConfigParsing.wrap(path, () -> new TitleDefinition(
@@ -98,66 +87,10 @@ public final class TitleCatalogParser {
                 description,
                 duration,
                 payment,
-                paymentOptions,
                 optionalString(values, "requirement.permission", ""),
                 optionalBoolean(values,
                         "requirement.deny-if-missing-permission", true),
                 sale));
-    }
-
-    private static List<PaymentPolicy> parsePaymentOptions(
-            Map<String, Object> values,
-            String path,
-            NamespacedId mintCurrency
-    ) {
-        Object raw = YamlValues.findNullable(values, "payment-options");
-        if (raw == null) {
-            throw new ConfigValueException(
-                    path + ".payment-options", "required value is missing");
-        }
-        Map<String, Object> options = ConfigParsing.mapValue(
-                raw, path + ".payment-options");
-        var result = new ArrayList<PaymentPolicy>();
-        for (Map.Entry<String, Object> option : options.entrySet()) {
-            String optionPath = path + ".payment-options." + option.getKey();
-            switch (option.getKey()) {
-                case "free" -> {
-                    if (!(option.getValue() instanceof Boolean enabled)
-                            || !enabled) {
-                        throw new ConfigValueException(optionPath,
-                                "free must be true when present");
-                    }
-                    result.add(PaymentPolicy.free());
-                }
-                case "mint" -> {
-                    Map<String, Object> payment = ConfigParsing.mapValue(
-                            option.getValue(), optionPath);
-                    if (YamlValues.findNullable(payment, "currency-id") != null) {
-                        throw new ConfigValueException(optionPath + ".currency-id",
-                                "Mint currency is configured globally at purchase.mint-currency");
-                    }
-                    result.add(PaymentPolicy.mint(
-                            mintCurrency,
-                            ConfigParsing.decimal(
-                                    YamlValues.nonBlankString(payment, "price"),
-                                    optionPath + ".price")));
-                }
-                case "title-coin" -> {
-                    Map<String, Object> payment = ConfigParsing.mapValue(
-                            option.getValue(), optionPath);
-                    result.add(PaymentPolicy.titleCoin(Long.parseLong(
-                            YamlValues.nonBlankString(payment, "price"))));
-                }
-                default -> throw new ConfigValueException(
-                        optionPath, "unknown payment option");
-            }
-        }
-        if (result.isEmpty()) {
-            throw new ConfigValueException(
-                path + ".payment-options",
-                    "at least one payment option is required");
-        }
-        return result;
     }
 
     private static DurationPolicy parseDuration(

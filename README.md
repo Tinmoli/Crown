@@ -1,109 +1,83 @@
 # Crown
 
-Crown 是一个 Fabric **服务端**称号商城与仓库模组。玩家通过命令或箱子 GUI 浏览、购买、佩戴和管理称号；普通客户端无需安装 Crown 或 SGUI。
+Crown 是 Fabric 服务端称号商城模组。玩家通过箱子 GUI 浏览、购买、佩戴和删除称号，普通客户端无需安装模组。
 
-> 详细设计见 `DESIGN.md`。
+**所有购买只使用 Crown 内置称号币。管理员通过命令发币，玩家之间不支持转账。无需安装 Mint 或其他经济模组。**
 
-## 目标版本
+## 安装与版本
 
-| Minecraft | Java | Fabric API | SGUI | Placeholder API |
-|---|---:|---|---|---|
-| 26.1 | 25 | 0.144.4+26.1 | 2.0.0+26.1 | 3.0.0+26.1 |
-| 26.1.1 | 25 | 0.145.4+26.1.1 | 2.0.0+26.1 | 3.0.0+26.1 |
-| 26.1.2 | 25 | 0.155.2+26.1.2 | 2.0.0+26.1 | 3.0.0+26.1 |
-| 26.2 | 25 | 0.155.2+26.2 | 2.1.0+26.2 | 3.1.0-beta.1+26.2 |
+- 支持 Minecraft 26.1、26.1.1、26.1.2、26.2，每个版本使用对应 JAR。
+- 要求 Java 25、Fabric Loader 0.19.3+、对应版本的 Fabric API。
+- SGUI 和数据库驱动随 JAR 打包。
+- LuckPerms、Text Placeholder API 为可选集成。
+- 默认 SQLite，也保留 MySQL 存储支持。
 
-所有版本要求 Fabric Loader `0.19.3+`。每个版本独立构建，禁止跨版本混用 JAR。
+当前为开发版，配置和数据库按当前结构使用，不提供旧经济版本的升级或价格换算功能。
 
-26.x 构建脚本采用“版本独立源码 + 公共构建约定”结构：每个 `versions/26.*` 目录都包含完整 Fabric 入口、命令、GUI、Placeholder 和显示代码；`gradle/crown-26-version.gradle` 只集中依赖、Java 和产物规则。新增版本时复制最近版本目录，并按真实 Minecraft API 检查修改该目录代码。
-
-## 依赖
-
-- **强制**：Fabric API、[Mint](https://github.com/Tinmoli/Mint) 经济 API（Mint API major 必须为 1；缺失时 Fabric Loader 直接拒绝加载 Crown）。
-- **可选**：LuckPerms（权限）、Text Placeholder API（称号变量）。
-- 默认存储 SQLite，可选 MySQL。
-
-## 构建
-
-```bat
-gradlew.bat buildAllVersions
-```
-
-产物收集到 `dist/`：
-
-```text
-dist/crown-fabric-26.1-<version>.jar
-dist/crown-fabric-26.1.1-<version>.jar
-dist/crown-fabric-26.1.2-<version>.jar
-dist/crown-fabric-26.2-<version>.jar
-```
-
-单独构建某个版本：
-
-```bat
-gradlew.bat -PcrownVersions=26.2 :versions:26.2:remapJar
-```
-
-只运行与 Minecraft 无关的公共模块测试（不会配置 Loom/Minecraft）：
-
-```bat
-gradlew.bat -PcrownVersions=none check
-```
-
-运行测试：
-
-```bat
-gradlew.bat check
-```
-
-## 工程结构
-
-```text
-common/domain    与 Minecraft 无关的领域模型、文本解析、校验
-common/config    YML 配置、JSON 语言、GUI 样式的安全同步与事务式热重载
-common/storage   SQLite/MySQL Schema、Repository、迁移、快照、异步执行器
-common/runtime   商城购买状态机、称号币、订单恢复、Mint 网关、只读缓存
-versions/26.*        各 Minecraft 版本的完整独立 Fabric 源码和构建目标
-```
-
-## 命令
+## 常用命令
 
 玩家：
 
 ```text
-/crown                 打开主菜单 GUI
-/crown coin balance    查看称号币余额
+/crown                         打开主菜单
+/crown shop                    打开称号商城
+/crown warehouse               打开称号仓库
+/crown buy <称号ID>             打开购买确认页
+/crown custom                  聊天输入自定义称号，再进入确认页
+/crown coin balance            查看称号币余额
 ```
 
 管理员：
 
 ```text
-/crown info                    运行状态
-/crown reload                  事务式热重载
-/crown coin give/take/set <玩家> <数量>
-/crown coin look <玩家>
+/crown coin give <玩家> <数量>   发放称号币
+/crown coin take <玩家> <数量>   扣除称号币
+/crown coin set <玩家> <数量>    设置称号币余额
+/crown coin look <玩家>         查看指定玩家余额
+/crown title                   打开商品管理 GUI
+/crown title price <ID> <价格>  设置称号币价格
+/crown reload                  重载商品、语言和 GUI 配置
 ```
 
-更多命令、权限节点、GUI 布局和 Placeholder 变量见 `DESIGN.md` §17-§19。
+发币权限为 `crown.admin.coin`，无权限插件时回退到 OP 等级 3。商品管理使用 `crown.admin.title`。
+数量和价格为非负整数，商品 `price: 0` 表示免费领取。
 
-## 配置
+## GUI 使用
 
-首次启动在 `config/crown/` 生成带简体中文注释的默认配置：
+1. `/crown` 打开主菜单，选择商城、仓库或自定义称号。
+2. 商城左键点击可购买商品，确认页显示称号、称号币价格和有效期。
+3. 点击唯一的购买按钮。余额不足时不扣币、不发放；成功后称号进入仓库。
+4. 仓库支持佩戴、卸下和删除。删除需要二次确认，不退还称号币。
+5. 管理员商品 GUI 支持创建、启停、图标、价格、文本、期限、库存和删除。
+6. 点击价格设置后，在聊天中输入 `50` 或 `price=50`；输入 `cancel` 取消。
 
-```text
-config/crown/
-├─ config.yml      核心功能、默认称号、称号币、自定义称号、显示、权限
-├─ titles.yml      称号商品
-├─ storage.yml     SQLite/MySQL 连接与迁移
-├─ lang/           zh_cn.json、en_us.json
-├─ gui/            八个箱子 GUI 布局
-├─ data/           SQLite 数据库
-└─ backups/        配置与数据库时间戳备份
+确认期间商品被改价、修改或删除时，会拒绝旧确认并提示重新打开。重复点击有处理中锁定和订单幂等保护。
+
+## 最简商品配置
+
+首次启动生成 `config/crown/`。
+
+```yaml
+# titles.yml
+config-version: 3
+titles:
+  welcome:
+    text: "欢迎"
+    icon: "minecraft:name_tag"
+    description:
+      - "&7欢迎称号"
+    price: 10
 ```
 
-### 称号显示模式
+省略 `duration` 表示永久；限时称号使用 `duration.days`。按需添加 `sale.global-stock`、
+`sale.per-player-limit`、`sale.starts-at`、`sale.ends-at` 和 `requirement.permission`。
 
-聊天、TAB 和头顶名称可以分别选择由谁显示，默认全部交给 Placeholder：
+自定义称号价格在 `config.yml` 的 `custom-title.price` 中设置。称号币名称、符号和余额上限在 `title-coin` 中设置。
+数据库连接设置修改后需要重启；重载会拒绝存储设置变化，继续保留当前配置和连接。
+
+## 称号显示
+
+聊天、TAB、头顶名称分别支持 `placeholder`、`vanilla`、`disabled`：
 
 ```yaml
 display:
@@ -113,62 +87,41 @@ display:
     nametag: "placeholder"
 ```
 
-- `placeholder`：Crown 不修改该渠道；Chat/TAB/计分板模组读取 Crown 变量。
-- `vanilla`：Crown 通过原版服务端聊天名、PlayerInfo 或 scoreboard team 显示。
-- `disabled`：Crown 不主动显示，但 Placeholder 变量仍可被其他系统读取。
+`placeholder` 默认交由外部聊天/TAB 模组读取变量；需要 Crown 直接显示时改为 `vanilla`。
+聊天只装饰发送者名称，头顶显示会避让其他模组的队伍。
 
-安装了聊天格式或 TAB 模组时，建议对应渠道保持 `placeholder`，防止称号重复。
-没有其他显示模组并希望 Crown 直接显示时，才将对应渠道改为 `vanilla`。
+安装 Text Placeholder API 后可使用 `%crown:title%`、`%crown:title_text%`、`%crown:title_prefix%`、
+`%crown:title_suffix%`、`%crown:title_id%`、`%crown:title_definition%`、`%crown:title_plain%`、
+`%crown:title_state%`、`%crown:title_expires%`、`%crown:title_coin%`、`%crown:title_coin_raw%`。
 
-原版聊天模式只装饰签名聊天的发送者显示名，不修改消息正文、不重新签名，
-也不会把玩家消息伪装成系统消息。
+GUI 文案位于 `gui/*.yml`。`{title_coin_price}`、`{title_coin_unit}` 等是 GUI 内部变量，和 Placeholder API 变量不同。
 
-### Placeholder API
+## 文案配置要求
 
-安装 Text Placeholder API 后可使用：
+除 GUI 外，玩家提示、命令帮助、管理员反馈、错误说明和运行日志等可读文案统一放入语言配置文件，
+通过 `config.yml` 的 `language` 选择 `lang/zh_cn.json`、`lang/en_us.json` 等语言。
+代码只引用语言键和动态参数，不硬编码中文或英文文案，也不把底层英文异常直接显示给玩家。
 
-```text
-%crown:title% %crown:title_text% %crown:title_prefix% %crown:title_suffix%
-%crown:title_id% %crown:title_definition% %crown:title_plain% %crown:title_state%
-%crown:title_expires% %crown:title_coin% %crown:title_coin_raw%
+GUI 文案单独处理，继续使用 `gui/*.yml`，不要求并入上述语言文件。
+这项全面清理目前是待办，当前文档更新不代表代码已经全部符合要求。
+
+## 构建与测试
+
+```powershell
+# 公共业务测试，不加载 Minecraft
+.\gradlew.bat '-PcrownVersions=none' check
+
+# 单版本构建
+.\gradlew.bat '-PcrownVersions=26.2' ':versions:26.2:build'
+
+# 四版本构建、测试、源码一致性检查及收集产物
+.\gradlew.bat build check verifyVersionSources buildAllVersions
 ```
 
-在聊天或 TAB 模组中将变量放入对应格式；Crown 默认不会接管这些渠道。只有将
-对应渠道设为 `vanilla` 时，Crown 才通过原版服务端机制直接显示。
+产物：`dist/crown-fabric-<Minecraft版本>-0.1.0-SNAPSHOT.jar`。
 
-管理员商品 GUI 的支付设置使用聊天输入：`free`、`title_coin=<正整数>` 或
-`mint=<正数价格>`。Mint 货币统一读取 `config.yml` 的
-`purchase.mint-currency`。期限/销售设置使用聊天输入：`duration=permanent`、
-`duration=limited:<天数>`、`sale-start=<UTC ISO-8601|none>`、
-`sale-end=<UTC ISO-8601|none>`、`stock=<正数|unlimited>`、
-`limit=<正数|unlimited>`。商品删除必须在二次确认界面确认，已购买的玩家仓库
-历史条目不会被删除。
-
-称号商品的最简配置如下：
-
-```yaml
-titles:
-  welcome:
-    text: "欢迎"
-    icon: "minecraft:name_tag"
-    description:
-      - "&7欢迎称号"
-    payment-options:
-      mint:
-        price: "100.00"
-      title-coin:
-        price: "10"
-```
-
-`payment-options` 表示购买界面提供的付款选项，玩家每次只能选择一种。
-Mint 的货币 ID 不在每个商品中重复填写，统一使用 `config.yml` 的
-`purchase.mint-currency`。省略 `duration` 表示永久，省略 `sale` 表示
-没有销售时间、库存和限购限制；只有需要限制时才添加 `sale.starts-at`、
-`sale.ends-at`、`sale.global-stock` 或 `sale.per-player-limit`。
-
-GUI 配置中的 `{price}`、`{currency}`、`{duration}` 是 Crown GUI 自身变量，
-由对应的 `gui/*.yml` 和运行时数据替换；`%crown:title%` 等是给聊天、TAB
-等外部格式使用的 PlaceholderAPI 变量，两者不是同一种占位符。
+工程分为 `common/domain`、`common/config`、`common/storage`、`common/runtime` 和四个独立的版本适配目录。
+详细边界见 [DESIGN.md](DESIGN.md)，验证记录和 GUI 实机检查清单见 [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md)。
 
 ## 许可
 

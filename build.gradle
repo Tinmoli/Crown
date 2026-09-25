@@ -118,3 +118,7 @@ tasks.register("verifyVersionSources") {
                 relativeJavaFiles.size(), versions.size())
     }
 }
+
+tasks.named("check") {
+    dependsOn "verifyVersionSources"
+}

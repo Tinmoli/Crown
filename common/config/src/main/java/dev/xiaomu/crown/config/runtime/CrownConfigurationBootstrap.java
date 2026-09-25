@@ -100,7 +100,7 @@ public final class CrownConfigurationBootstrap {
         CoreSettings core = new CoreSettingsParser().parse(
                 coreResult.values());
         CatalogSettings catalog = new TitleCatalogParser().parse(
-                titleResult.values(), core.safety(), core.purchase().mintCurrency());
+                titleResult.values(), core.safety());
         StorageSettings storage = new StorageSettingsParser().parse(
                 storageResult.values());
 

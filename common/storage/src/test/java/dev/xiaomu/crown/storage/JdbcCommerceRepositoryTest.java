@@ -2,7 +2,6 @@ package dev.xiaomu.crown.storage;
 
 import dev.xiaomu.crown.domain.catalog.DefinitionId;
 import dev.xiaomu.crown.domain.catalog.DurationPolicy;
-import dev.xiaomu.crown.domain.catalog.NamespacedId;
 import dev.xiaomu.crown.domain.catalog.PaymentType;
 import dev.xiaomu.crown.domain.order.PurchaseOrderState;
 import dev.xiaomu.crown.domain.player.TitleSelection;
@@ -56,7 +55,7 @@ final class JdbcCommerceRepositoryTest {
             ensurePlayer(repository, firstPlayer, "FirstBuyer");
             ensurePlayer(repository, secondPlayer, "SecondBuyer");
 
-            PurchaseOrderRecord first = mintOrder(
+            PurchaseOrderRecord first = coinOrder(
                     firstOrderId, firstPlayer, true, BASE_TIME);
             assertEquals(
                     OrderPreparationStatus.CREATED,
@@ -68,7 +67,7 @@ final class JdbcCommerceRepositoryTest {
                     new SaleCounterRecord(VIP, 0, 1, 1),
                     repository.findSaleCounter(VIP).orElseThrow());
 
-            PurchaseOrderRecord second = mintOrder(
+            PurchaseOrderRecord second = coinOrder(
                     secondOrderId,
                     secondPlayer,
                     true,
@@ -115,7 +114,7 @@ final class JdbcCommerceRepositoryTest {
                     "purchase_granted",
                     secondPlayer,
                     secondOrderId.toString(),
-                    "{\"paymentType\":\"MINT\"}",
+                    "{\"paymentType\":\"TITLE_COIN\"}",
                     grantedAt);
             assertEquals(
                     title,
@@ -162,7 +161,7 @@ final class JdbcCommerceRepositoryTest {
                     new SaleCounterRecord(VIP, 1, 0, 4),
                     repository.findSaleCounter(VIP).orElseThrow());
 
-            PurchaseOrderRecord exhausted = mintOrder(
+            PurchaseOrderRecord exhausted = coinOrder(
                     UUID.randomUUID(),
                     firstPlayer,
                     true,
@@ -174,16 +173,16 @@ final class JdbcCommerceRepositoryTest {
     }
 
     @Test
-    void enforcesPerPlayerLimitAndRollsBackReservationOnConflict() {
+    void enforcesPerPlayerLimit() {
         UUID playerId = UUID.randomUUID();
 
         try (JdbcCrownRepository repository =
                      repository("limits.db")) {
             ensurePlayer(repository, playerId, "LimitedBuyer");
 
-            PurchaseOrderRecord first = mintOrder(
+            PurchaseOrderRecord first = coinOrder(
                     UUID.randomUUID(), playerId, false, BASE_TIME);
-            PurchaseOrderRecord second = mintOrder(
+            PurchaseOrderRecord second = coinOrder(
                     UUID.randomUUID(),
                     playerId,
                     false,
@@ -210,32 +209,6 @@ final class JdbcCommerceRepositoryTest {
             assertEquals(1,
                     repository.countPlayerPurchases(playerId, VIP));
 
-            UUID duplicateTransaction =
-                    second.mintTransactionId();
-            PurchaseOrderRecord conflicting = new PurchaseOrderRecord(
-                    UUID.randomUUID(),
-                    duplicateTransaction,
-                    playerId,
-                    ProductType.CATALOG,
-                    VIP,
-                    PaymentType.MINT,
-                    NamespacedId.parse("mint:coin"),
-                    100,
-                    "{\"text\":\"VIP\"}",
-                    PurchaseOrderState.PREPARED,
-                    null,
-                    null,
-                    true,
-                    BASE_TIME.plusSeconds(3),
-                    BASE_TIME.plusSeconds(3));
-
-            assertThrows(StorageException.class,
-                    () -> repository.prepareOrder(
-                            conflicting, 10, -1));
-            assertTrue(repository.findOrder(
-                    conflicting.orderId()).isEmpty());
-
-            assertTrue(repository.findSaleCounter(VIP).isEmpty());
         }
     }
 
@@ -440,7 +413,7 @@ final class JdbcCommerceRepositoryTest {
                 start.plusSeconds(1)));
     }
 
-    private static PurchaseOrderRecord mintOrder(
+    private static PurchaseOrderRecord coinOrder(
             UUID orderId,
             UUID playerId,
             boolean inventoryReserved,
@@ -448,12 +421,10 @@ final class JdbcCommerceRepositoryTest {
     ) {
         return new PurchaseOrderRecord(
                 orderId,
-                UUID.randomUUID(),
                 playerId,
                 ProductType.CATALOG,
                 VIP,
-                PaymentType.MINT,
-                NamespacedId.parse("mint:coin"),
+                PaymentType.TITLE_COIN,
                 100,
                 "{\"text\":\"VIP\"}",
                 PurchaseOrderState.PREPARED,

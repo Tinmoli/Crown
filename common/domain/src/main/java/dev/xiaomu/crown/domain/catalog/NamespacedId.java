@@ -3,12 +3,7 @@ package dev.xiaomu.crown.domain.catalog;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
-/**
- * 与 Minecraft/Mint 类型解耦的命名空间 ID。
- *
- * <p>资源路径允许斜杠；Mint 货币 ID 可在调用
- * {@link #requireSimplePath()} 后收紧到单段路径。</p>
- */
+/** Minecraft 资源的命名空间 ID。 */
 public record NamespacedId(String namespace, String path)
         implements Comparable<NamespacedId> {
     private static final Pattern NAMESPACE =

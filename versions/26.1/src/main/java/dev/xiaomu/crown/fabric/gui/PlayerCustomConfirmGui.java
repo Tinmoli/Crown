@@ -6,7 +6,6 @@ import dev.xiaomu.crown.config.model.GuiScreenType;
 import dev.xiaomu.crown.config.model.CoreSettings;
 import dev.xiaomu.crown.domain.catalog.TitleContent;
 import dev.xiaomu.crown.domain.catalog.PaymentPolicy;
-import dev.xiaomu.crown.domain.catalog.PaymentType;
 import dev.xiaomu.crown.fabric.CrownServerContext;
 import dev.xiaomu.crown.fabric.custom.PlayerCustomTitleSessions;
 import eu.pb4.sgui.api.ClickType;
@@ -15,7 +14,6 @@ import eu.pb4.sgui.api.gui.SimpleGui;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.MenuType;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -28,6 +26,7 @@ public final class PlayerCustomConfirmGui extends SimpleGui {
     private final TitleContent content;
     private final GuiLayout layout;
     private boolean terminalAction;
+    private final CoreSettings.CustomTitle quotedSettings;
 
     private PlayerCustomConfirmGui(
             CrownServerContext context, ServerPlayer player, MenuType<?> type,
@@ -38,6 +37,7 @@ public final class PlayerCustomConfirmGui extends SimpleGui {
         this.sessionId = sessionId;
         this.content = content;
         this.layout = layout;
+        this.quotedSettings = context.core().customTitle();
     }
 
     public static void open(
@@ -66,27 +66,20 @@ public final class PlayerCustomConfirmGui extends SimpleGui {
         }
         var settings = context.core().customTitle();
         var languages = context.runtime().snapshot().languages();
-        PaymentPolicy primary = settings.paymentOptions().getFirst();
+        PaymentPolicy primary = settings.payment();
         Map<String, String> variables = Map.of(
                 "title_preview", GuiFormatting.previewSource(content),
                 "title_source", content.textSource(),
                 "price", GuiFormatting.priceText(primary, layout.textValues()),
                 "currency", GuiFormatting.currencyText(
                         primary, context.core()),
-                "mint_price", optionPrice(settings, PaymentType.MINT),
-                "title_coin_price", optionPrice(settings, PaymentType.TITLE_COIN),
-                "mint_unit", context.core().purchase().mintCurrencyName(),
+                "title_coin_price", GuiFormatting.priceText(primary, layout.textValues()),
                 "title_coin_unit", context.core().titleCoin().name(),
                 "duration", GuiFormatting.durationText(settings.duration(), layout.textValues()));
         Map<String, List<String>> multiline = Map.of(
-                "payment_price_lines", paymentPriceLines(settings));
+                "payment_price_lines", List.of(layout.textValue("title-coin-price-line")));
         for (GuiButton button : layout.buttons().values()) {
-            if (("pay-mint".equals(button.action())
-                    && find(settings, PaymentType.MINT).isEmpty())
-                    || ("pay-title-coin".equals(button.action())
-                    && find(settings, PaymentType.TITLE_COIN).isEmpty())) {
-                continue;
-            }
+
             if ("processing".equals(button.action())) continue;
             GuiElementBuilder element = items.build(button.item(), variables, multiline);
             element.setCallback((index, clickType, input, gui) ->
@@ -98,16 +91,15 @@ public final class PlayerCustomConfirmGui extends SimpleGui {
     private void handleButton(String action, ClickType clickType) {
         if (!clickType.isLeft || terminalAction) return;
         switch (action) {
-            case "confirm", "pay-mint", "pay-title-coin" -> {
-                PaymentPolicy selected = switch (action) {
-                    case "pay-mint" -> find(context.core().customTitle(), PaymentType.MINT).orElse(null);
-                    case "pay-title-coin" -> find(context.core().customTitle(), PaymentType.TITLE_COIN).orElse(null);
-                    default -> context.core().customTitle().payment();
-                };
-                if (selected == null) return;
+            case "confirm", "pay-title-coin" -> {
+                if (!quotedSettings.equals(context.core().customTitle())) {
+                    getPlayer().sendSystemMessage(context.messages().render("purchase.changed"));
+                    close();
+                    return;
+                }
                 terminalAction = true;
                 close();
-                PlayerCustomTitleSessions.confirm(context, getPlayer(), sessionId, selected);
+                PlayerCustomTitleSessions.confirm(context, getPlayer(), sessionId);
             }
             case "reenter" -> {
                 terminalAction = true;
@@ -122,28 +114,6 @@ public final class PlayerCustomConfirmGui extends SimpleGui {
             }
             default -> { }
         }
-    }
-
-    private String optionPrice(CoreSettings.CustomTitle settings,
-                               PaymentType type) {
-        return find(settings, type)
-                .map(payment -> GuiFormatting.priceText(payment, layout.textValues()))
-                .orElse("");
-    }
-
-    private List<String> paymentPriceLines(CoreSettings.CustomTitle settings) {
-        var lines = new ArrayList<String>(2);
-        find(settings, PaymentType.MINT).ifPresent(payment -> lines.add(
-                layout.textValue("mint-price-line")));
-        find(settings, PaymentType.TITLE_COIN).ifPresent(payment -> lines.add(
-                layout.textValue("title-coin-price-line")));
-        return List.copyOf(lines);
-    }
-
-    private static java.util.Optional<PaymentPolicy> find(
-            CoreSettings.CustomTitle settings, PaymentType type) {
-        return settings.paymentOptions().stream()
-                .filter(payment -> payment.type() == type).findFirst();
     }
 
     @Override

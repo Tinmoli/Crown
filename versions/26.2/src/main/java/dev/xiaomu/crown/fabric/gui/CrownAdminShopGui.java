@@ -71,8 +71,9 @@ public final class CrownAdminShopGui extends SimpleGui {
         gui.setLockPlayerInventory(true);
         gui.setTitle(context.messages().renderRaw(layout.title()));
         gui.draw(layout);
-        CrownGuiSessions.adminShop(context, player);
         gui.open();
+        CrownGuiSessions.adminShop(context, player);
+
     }
 
     public static void openDetail(
@@ -423,7 +424,6 @@ public final class CrownAdminShopGui extends SimpleGui {
                     "category", definition.category(),
                     "price", GuiFormatting.priceText(definition.payment(),
                             layout.textValues()),
-                    "mint_unit", context.core().purchase().mintCurrencyName(),
                     "title_coin_unit", context.core().titleCoin().name(),
                     "price_unit", GuiFormatting.currencyText(
                             definition.payment(), context.core()),
@@ -454,6 +454,11 @@ public final class CrownAdminShopGui extends SimpleGui {
         return message == null || message.isBlank()
                 ? current.getClass().getSimpleName()
                 : message.substring(0, Math.min(message.length(), 160));
+    }
+
+    @Override
+    public void onPlayerClose(boolean serverInitiated) {
+        CrownGuiSessions.clear(getPlayer());
     }
 
     private static MenuType<?> menuType(GuiScreenType type) {

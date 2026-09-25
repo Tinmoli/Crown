@@ -10,7 +10,6 @@ import dev.xiaomu.crown.config.model.GuiScreenType;
 import dev.xiaomu.crown.domain.text.CrownTextParser;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;

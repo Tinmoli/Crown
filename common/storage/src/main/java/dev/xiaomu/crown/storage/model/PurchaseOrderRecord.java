@@ -1,7 +1,6 @@
 package dev.xiaomu.crown.storage.model;
 
 import dev.xiaomu.crown.domain.catalog.DefinitionId;
-import dev.xiaomu.crown.domain.catalog.NamespacedId;
 import dev.xiaomu.crown.domain.catalog.PaymentType;
 import dev.xiaomu.crown.domain.order.PurchaseOrderState;
 
@@ -13,12 +12,10 @@ import java.util.UUID;
 /** 可幂等恢复的购买订单持久化快照。 */
 public record PurchaseOrderRecord(
         UUID orderId,
-        UUID mintTransactionId,
         UUID playerId,
         ProductType productType,
         DefinitionId definitionId,
         PaymentType paymentType,
-        NamespacedId currencyId,
         long amountMinor,
         String titleSnapshotJson,
         PurchaseOrderState state,
@@ -61,14 +58,6 @@ public record PurchaseOrderRecord(
             throw new IllegalArgumentException(
                     "Paid order amount must be positive");
         }
-        if (paymentType == PaymentType.MINT) {
-            Objects.requireNonNull(mintTransactionId, "mintTransactionId");
-            Objects.requireNonNull(currencyId, "currencyId")
-                    .requireSimplePath();
-        } else if (mintTransactionId != null || currencyId != null) {
-            throw new IllegalArgumentException(
-                    "Only Mint orders have transaction and currency IDs");
-        }
         if (productType == ProductType.CATALOG && definitionId == null) {
             throw new IllegalArgumentException(
                     "Catalog order requires definition ID");
@@ -88,16 +77,8 @@ public record PurchaseOrderRecord(
         }
     }
 
-    public Optional<UUID> mintTransaction() {
-        return Optional.ofNullable(mintTransactionId);
-    }
-
     public Optional<DefinitionId> definition() {
         return Optional.ofNullable(definitionId);
-    }
-
-    public Optional<NamespacedId> currency() {
-        return Optional.ofNullable(currencyId);
     }
 
     public Optional<UUID> grantedEntryId() {

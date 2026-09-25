@@ -6,7 +6,6 @@ import dev.xiaomu.crown.config.runtime.CrownConfigurationBootstrap;
 import dev.xiaomu.crown.config.runtime.RuntimeSnapshot;
 import dev.xiaomu.crown.config.runtime.RuntimeSnapshotManager;
 import dev.xiaomu.crown.runtime.concurrent.PlayerOperationQueue;
-import dev.xiaomu.crown.runtime.economy.MintPaymentGateway;
 import dev.xiaomu.crown.runtime.display.PlayerTitleCache;
 import dev.xiaomu.crown.runtime.purchase.UnifiedPurchaseService;
 import dev.xiaomu.crown.runtime.wardrobe.TitleWardrobeService;
@@ -30,7 +29,7 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * Crown 服务端运行时的组合根。
  *
- * <p>按 config → storage backend → async executor → mint gateway →
+ * <p>按 config → storage backend → async executor →
  * purchase service 的顺序装配依赖，并在关闭时按相反顺序释放资源。启动
  * 全程 fail-fast：任一阶段失败都会回滚已经创建的资源，避免半初始化状态。</p>
  */
@@ -38,7 +37,6 @@ public final class CrownRuntime implements AutoCloseable {
     private final RuntimeSnapshotManager snapshots;
     private final StorageBackendFactory backendFactory;
     private final AsyncStorageExecutorFactory executorFactory;
-    private final MintPaymentGateway mint;
     private final Path gameDirectory;
     private final JdbcStorageMigrator storageMigrator =
             new JdbcStorageMigrator();
@@ -50,8 +48,7 @@ public final class CrownRuntime implements AutoCloseable {
 
     public CrownRuntime(
             Path configRoot,
-            Path gameDirectory,
-            MintPaymentGateway mint
+            Path gameDirectory
     ) {
         this(
                 new RuntimeSnapshotManager(
@@ -59,7 +56,6 @@ public final class CrownRuntime implements AutoCloseable {
                         new CrownConfigurationBootstrap()),
                 new StorageBackendFactory(),
                 new AsyncStorageExecutorFactory(),
-                mint,
                 gameDirectory);
     }
 
@@ -67,7 +63,6 @@ public final class CrownRuntime implements AutoCloseable {
             RuntimeSnapshotManager snapshots,
             StorageBackendFactory backendFactory,
             AsyncStorageExecutorFactory executorFactory,
-            MintPaymentGateway mint,
             Path gameDirectory
     ) {
         this.snapshots = Objects.requireNonNull(snapshots, "snapshots");
@@ -75,7 +70,6 @@ public final class CrownRuntime implements AutoCloseable {
                 backendFactory, "backendFactory");
         this.executorFactory = Objects.requireNonNull(
                 executorFactory, "executorFactory");
-        this.mint = Objects.requireNonNull(mint, "mint");
         this.gameDirectory = Objects.requireNonNull(
                 gameDirectory, "gameDirectory");
     }
@@ -97,8 +91,8 @@ public final class CrownRuntime implements AutoCloseable {
     }
 
     /**
-     * 重载配置。存储类型未变化时保留后端与执行器；类型变化时构建新后端、
-     * 校验成功后再原子替换，并在旧引用上执行优雅关闭。
+     * 重载商品、语言和 GUI 配置；数据库连接设置需要重启，
+     * 拒绝在有购买操作运行时切换存储。
      */
     public synchronized ConfigurationLoadReport reload() throws IOException {
         Active current = require();
@@ -106,21 +100,12 @@ public final class CrownRuntime implements AutoCloseable {
             throw new IOException(
                     "Crown storage maintenance is running");
         }
-        ConfigurationLoadReport report = snapshots.reload();
-        StorageSettings.Type nextType =
-                report.snapshot().storage().type();
-        if (nextType == current.backend.type()) {
-            return report;
-        }
-
-        Active next = assemble(report.snapshot());
-        if (!active.compareAndSet(current, next)) {
-            closeQuietly(next);
-            throw new IllegalStateException(
-                    "Crown runtime changed during reload");
-        }
-        closeQuietly(current);
-        return report;
+        StorageSettings storage = snapshot().storage();
+        return snapshots.reload(candidate -> {
+            if (!storage.equals(candidate.storage())) {
+                throw new IllegalArgumentException("Storage settings require a server restart");
+            }
+        });
     }
 
     /**
@@ -330,7 +315,6 @@ public final class CrownRuntime implements AutoCloseable {
                     new UnifiedPurchaseService(
                             backend.repository(),
                             executor,
-                            mint,
                             playerOperations);
             PlayerTitleCache playerTitleCache = new PlayerTitleCache(
                     backend.repository(), snapshots::requireSnapshot);

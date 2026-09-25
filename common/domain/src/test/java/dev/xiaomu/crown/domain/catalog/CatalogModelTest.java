@@ -2,7 +2,6 @@ package dev.xiaomu.crown.domain.catalog;
 
 import org.junit.jupiter.api.Test;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -18,22 +17,11 @@ final class CatalogModelTest {
         assertThrows(IllegalArgumentException.class,
                 () -> DefinitionId.of("Event Winner"));
 
-        PaymentPolicy mint = PaymentPolicy.mint(
-                NamespacedId.parse("mint:coin"),
-                new BigDecimal("12.50"));
-        assertEquals(PaymentType.MINT, mint.type());
-        assertEquals("mint:coin",
-                mint.mintCurrencyId().orElseThrow().serialized());
-
-        PaymentPolicy coin = PaymentPolicy.titleCoin(50);
-        assertEquals(50, coin.titleCoinPrice());
-        assertThrows(IllegalStateException.class,
-                mint::titleCoinPrice);
-        assertThrows(IllegalArgumentException.class,
-                () -> new PaymentPolicy(
-                        PaymentType.TITLE_COIN,
-                        null,
-                        new BigDecimal("1.5")));
+        PaymentPolicy coins = PaymentPolicy.titleCoin(50);
+        assertEquals(PaymentType.TITLE_COIN, coins.type());
+        assertEquals(50, coins.titleCoinPrice());
+        assertEquals(PaymentType.FREE, PaymentPolicy.titleCoin(0).type());
+        assertThrows(IllegalArgumentException.class, () -> PaymentPolicy.titleCoin(-1));
     }
 
     @Test

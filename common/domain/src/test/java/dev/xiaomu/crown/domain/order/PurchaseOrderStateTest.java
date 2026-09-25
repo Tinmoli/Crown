@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class PurchaseOrderStateTest {
     @Test
-    void acceptsRecoverableMintPurchasePath() {
+    void acceptsRecoverableCoinPurchasePath() {
         assertTrue(PurchaseOrderState.PREPARED.canTransitionTo(
                 PurchaseOrderState.PAYMENT_PENDING));
         assertTrue(PurchaseOrderState.PAYMENT_PENDING.canTransitionTo(

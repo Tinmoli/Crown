@@ -62,12 +62,10 @@ public final class JdbcSchema {
             statement.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS %s (
                         order_id %s PRIMARY KEY,
-                        mint_transaction_id %s NULL UNIQUE,
                         player_uuid %s NOT NULL,
                         product_type %s NOT NULL,
                         definition_id %s NULL,
                         payment_type %s NOT NULL,
-                        currency_id %s NULL,
                         amount_minor BIGINT NOT NULL,
                         title_snapshot_json %s NOT NULL,
                         state %s NOT NULL,
@@ -80,8 +78,8 @@ public final class JdbcSchema {
                             REFERENCES %s(player_uuid)
                     )
                     """.formatted(
-                    tables.purchaseOrders(), key36, key36, key36,
-                    key64, key64, key64, key128, largeText,
+                    tables.purchaseOrders(), key36, key36,
+                    key64, key64, key64, largeText,
                     key64, key36, key128, tables.players()));
 
             statement.executeUpdate("""

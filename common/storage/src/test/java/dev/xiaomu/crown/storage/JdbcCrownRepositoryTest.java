@@ -1,7 +1,6 @@
 package dev.xiaomu.crown.storage;
 
 import dev.xiaomu.crown.domain.catalog.DefinitionId;
-import dev.xiaomu.crown.domain.catalog.NamespacedId;
 import dev.xiaomu.crown.domain.catalog.PaymentType;
 import dev.xiaomu.crown.domain.order.PurchaseOrderState;
 import dev.xiaomu.crown.domain.player.TitleSelection;
@@ -343,7 +342,7 @@ final class JdbcCrownRepositoryTest {
     }
 
     @Test
-    void transitionsAndGrantsMintOrderIdempotently() {
+    void transitionsAndGrantsCoinOrderIdempotently() {
         UUID playerId = UUID.randomUUID();
         UUID orderId = UUID.randomUUID();
         UUID transactionId = UUID.randomUUID();
@@ -355,7 +354,7 @@ final class JdbcCrownRepositoryTest {
                     playerId, "Buyer",
                     TitleSelection.defaultTitle(), CREATED_AT);
 
-            PurchaseOrderRecord prepared = mintOrder(
+            PurchaseOrderRecord prepared = coinOrder(
                     orderId, transactionId, playerId,
                     PurchaseOrderState.PREPARED, CREATED_AT);
             assertTrue(repository.createOrder(prepared));
@@ -414,7 +413,7 @@ final class JdbcCrownRepositoryTest {
     }
 
     @Test
-    void rejectsDuplicateMintTransactionAndInvalidGrantWithoutPartialWrites() {
+    void rejectsInvalidGrantWithoutPartialWrites() {
         UUID playerId = UUID.randomUUID();
         UUID transactionId = UUID.randomUUID();
         UUID firstOrderId = UUID.randomUUID();
@@ -426,16 +425,10 @@ final class JdbcCrownRepositoryTest {
                     playerId, "Buyer",
                     TitleSelection.defaultTitle(), CREATED_AT);
 
-            assertTrue(repository.createOrder(mintOrder(
+            assertTrue(repository.createOrder(coinOrder(
                     firstOrderId, transactionId, playerId,
                     PurchaseOrderState.PREPARED, CREATED_AT)));
 
-            assertThrows(StorageException.class,
-                    () -> repository.createOrder(mintOrder(
-                            secondOrderId, transactionId, playerId,
-                            PurchaseOrderState.PREPARED,
-                            CREATED_AT.plusSeconds(1))));
-            assertTrue(repository.findOrder(secondOrderId).isEmpty());
             assertNotNull(repository.findOrder(firstOrderId)
                     .orElseThrow());
 
@@ -498,7 +491,7 @@ final class JdbcCrownRepositoryTest {
                 null);
     }
 
-    private static PurchaseOrderRecord mintOrder(
+    private static PurchaseOrderRecord coinOrder(
             UUID orderId,
             UUID transactionId,
             UUID playerId,
@@ -507,12 +500,10 @@ final class JdbcCrownRepositoryTest {
     ) {
         return new PurchaseOrderRecord(
                 orderId,
-                transactionId,
                 playerId,
                 ProductType.CATALOG,
                 DefinitionId.of("vip"),
-                PaymentType.MINT,
-                NamespacedId.parse("mint:coin"),
+                PaymentType.TITLE_COIN,
                 250,
                 "{\"text\":\"VIP\"}",
                 state,

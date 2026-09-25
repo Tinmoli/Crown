@@ -588,8 +588,6 @@ public final class JdbcCrownRepository implements CrownRepository {
                         connection, order, now);
                 case TITLE_COIN -> commitTitleCoinPayment(
                         connection, order, actor, reason, now);
-                case MINT -> throw new IllegalArgumentException(
-                        "Mint orders cannot use internal payment");
             };
         });
     }
@@ -1181,13 +1179,13 @@ public final class JdbcCrownRepository implements CrownRepository {
     ) throws SQLException {
         try (PreparedStatement insert = connection.prepareStatement(
                 "INSERT INTO " + tables.purchaseOrders() + "("
-                        + "order_id, mint_transaction_id, player_uuid,"
+                        + "order_id, player_uuid,"
                         + " product_type, definition_id, payment_type,"
-                        + " currency_id, amount_minor,"
+                        + " amount_minor,"
                         + " title_snapshot_json, state, entry_id,"
                         + " failure_code, inventory_reserved,"
                         + " created_at, updated_at"
-                        + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
+                        + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
             bindOrder(insert, order);
             insert.executeUpdate();
         }
@@ -1682,12 +1680,10 @@ public final class JdbcCrownRepository implements CrownRepository {
             throws SQLException {
         return new PurchaseOrderRecord(
                 UUID.fromString(result.getString("order_id")),
-                nullableUuid(result.getString("mint_transaction_id")),
                 UUID.fromString(result.getString("player_uuid")),
                 ProductType.valueOf(result.getString("product_type")),
                 nullableDefinition(result.getString("definition_id")),
                 PaymentType.valueOf(result.getString("payment_type")),
-                nullableNamespacedId(result.getString("currency_id")),
                 result.getLong("amount_minor"),
                 result.getString("title_snapshot_json"),
                 PurchaseOrderState.valueOf(result.getString("state")),
@@ -1755,23 +1751,19 @@ public final class JdbcCrownRepository implements CrownRepository {
             PurchaseOrderRecord order
     ) throws SQLException {
         statement.setString(1, order.orderId().toString());
-        setNullableUuid(statement, 2, order.mintTransactionId());
-        statement.setString(3, order.playerId().toString());
-        statement.setString(4, order.productType().name());
-        setNullableString(statement, 5,
+        statement.setString(2, order.playerId().toString());
+        statement.setString(3, order.productType().name());
+        setNullableString(statement, 4,
                 order.definition().map(DefinitionId::value).orElse(null));
-        statement.setString(6, order.paymentType().name());
-        setNullableString(statement, 7,
-                order.currency().map(NamespacedId::serialized)
-                        .orElse(null));
-        statement.setLong(8, order.amountMinor());
-        statement.setString(9, order.titleSnapshotJson());
-        statement.setString(10, order.state().name());
-        setNullableUuid(statement, 11, order.entryId());
-        setNullableString(statement, 12, order.failureCode());
-        statement.setInt(13, order.inventoryReserved() ? 1 : 0);
-        statement.setLong(14, epoch(order.createdAt()));
-        statement.setLong(15, epoch(order.updatedAt()));
+        statement.setString(5, order.paymentType().name());
+        statement.setLong(6, order.amountMinor());
+        statement.setString(7, order.titleSnapshotJson());
+        statement.setString(8, order.state().name());
+        setNullableUuid(statement, 9, order.entryId());
+        setNullableString(statement, 10, order.failureCode());
+        statement.setInt(11, order.inventoryReserved() ? 1 : 0);
+        statement.setLong(12, epoch(order.createdAt()));
+        statement.setLong(13, epoch(order.updatedAt()));
     }
 
     private static void bindSelection(

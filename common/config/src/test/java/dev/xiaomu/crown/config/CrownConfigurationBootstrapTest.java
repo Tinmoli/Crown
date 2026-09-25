@@ -53,7 +53,7 @@ final class CrownConfigurationBootstrapTest {
         assertEquals("萌新",
                 snapshot.core().defaultTitle().content().textSource());
         assertEquals(2, snapshot.catalog().definitions().size());
-        assertEquals(PaymentType.MINT,
+        assertEquals(PaymentType.TITLE_COIN,
                 snapshot.catalog().find("veteran")
                         .orElseThrow().payment().type());
         assertEquals(PaymentType.TITLE_COIN,

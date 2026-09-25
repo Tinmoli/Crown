@@ -2,8 +2,6 @@ package dev.xiaomu.crown.runtime.purchase;
 
 import dev.xiaomu.crown.domain.catalog.DefinitionId;
 import dev.xiaomu.crown.domain.catalog.DurationPolicy;
-import dev.xiaomu.crown.domain.catalog.NamespacedId;
-import dev.xiaomu.crown.domain.catalog.PaymentType;
 import dev.xiaomu.crown.domain.catalog.TitleContent;
 import dev.xiaomu.crown.domain.catalog.TitleDefinition;
 import dev.xiaomu.crown.storage.model.OwnedTitleKind;
@@ -29,8 +27,7 @@ public record TitleOrderSnapshot(
         String titlePrefix,
         String titleSuffix,
         String source,
-        DurationPolicy duration,
-        NamespacedId mintShopAccount
+        DurationPolicy duration
 ) {
     public static final int CURRENT_SCHEMA_VERSION = 1;
     private static final int MAXIMUM_SOURCE_LENGTH = 16_384;
@@ -52,9 +49,6 @@ public record TitleOrderSnapshot(
                 titleSuffix, "titleSuffix", true);
         source = requireSource(source, "source", false);
         duration = Objects.requireNonNull(duration, "duration");
-        if (mintShopAccount != null) {
-            mintShopAccount = mintShopAccount.requireSimplePath();
-        }
 
         if (productType == ProductType.CATALOG
                 && (definitionId == null
@@ -72,8 +66,7 @@ public record TitleOrderSnapshot(
 
     public static TitleOrderSnapshot catalog(
             UUID entryId,
-            TitleDefinition definition,
-            NamespacedId mintShopAccount
+            TitleDefinition definition
     ) {
         Objects.requireNonNull(definition, "definition");
         return fromContent(
@@ -83,15 +76,13 @@ public record TitleOrderSnapshot(
                 OwnedTitleKind.CATALOG,
                 "catalog:" + definition.id().value(),
                 definition.content(),
-                definition.duration(),
-                mintShopAccount);
+                definition.duration());
     }
 
     public static TitleOrderSnapshot custom(
             UUID entryId,
             TitleContent content,
-            DurationPolicy duration,
-            NamespacedId mintShopAccount
+            DurationPolicy duration
     ) {
         return fromContent(
                 entryId,
@@ -100,20 +91,14 @@ public record TitleOrderSnapshot(
                 OwnedTitleKind.CUSTOM,
                 "custom",
                 content,
-                duration,
-                mintShopAccount);
+                duration);
     }
 
     public boolean matches(PurchaseOrderRecord order) {
         Objects.requireNonNull(order, "order");
-        boolean mintAccountMatches =
-                order.paymentType() == PaymentType.MINT
-                        ? mintShopAccount != null
-                        : mintShopAccount == null;
         return productType == order.productType()
                 && Objects.equals(
-                definitionId, order.definitionId())
-                && mintAccountMatches;
+                definitionId, order.definitionId());
     }
 
     public OwnedTitleRecord toOwnedTitle(
@@ -150,8 +135,7 @@ public record TitleOrderSnapshot(
             OwnedTitleKind kind,
             String source,
             TitleContent content,
-            DurationPolicy duration,
-            NamespacedId mintShopAccount
+            DurationPolicy duration
     ) {
         Objects.requireNonNull(content, "content");
         return new TitleOrderSnapshot(
@@ -164,8 +148,7 @@ public record TitleOrderSnapshot(
                 content.prefixSource(),
                 content.suffixSource(),
                 source,
-                duration,
-                mintShopAccount);
+                duration);
     }
 
     private static String requireSource(

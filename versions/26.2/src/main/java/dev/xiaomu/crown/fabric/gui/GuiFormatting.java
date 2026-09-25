@@ -33,9 +33,6 @@ public final class GuiFormatting {
         return switch (payment.type()) {
             case FREE -> text(textValues, "free");
             case TITLE_COIN -> Long.toString(payment.titleCoinPrice());
-            case MINT -> payment.configuredPrice()
-                    .map(price -> price.stripTrailingZeros().toPlainString())
-                    .orElse("0");
         };
     }
 
@@ -43,7 +40,6 @@ public final class GuiFormatting {
                                       CoreSettings core) {
         return switch (payment.type()) {
             case FREE -> text(Map.of(), "free");
-            case MINT -> core.purchase().mintCurrencyName();
             case TITLE_COIN -> core.titleCoin().name();
         };
     }
@@ -52,7 +48,6 @@ public final class GuiFormatting {
                                          Map<String, String> textValues) {
         return switch (type) {
             case FREE -> text(textValues, "payment-free");
-            case MINT -> text(textValues, "payment-mint");
             case TITLE_COIN -> text(textValues, "payment-title-coin");
         };
     }

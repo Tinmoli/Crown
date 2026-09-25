@@ -110,9 +110,10 @@ public final class CrownAdminWarehouseGui extends SimpleGui {
         gui.setTitle(context.messages().renderRaw(
                 layout.title().replace("{player}", targetName)));
         gui.draw(layout);
+        gui.open();
         CrownGuiSessions.adminWarehouse(
                 context, administrator, targetId, targetName);
-        gui.open();
+
     }
 
     private void draw(GuiLayout layout) {
@@ -311,6 +312,11 @@ public final class CrownAdminWarehouseGui extends SimpleGui {
                 ? 1
                 : (titles.size() + contentSlots.length - 1)
                         / contentSlots.length;
+    }
+
+    @Override
+    public void onPlayerClose(boolean serverInitiated) {
+        CrownGuiSessions.clear(getPlayer());
     }
 
     private static MenuType<?> menuType(GuiScreenType type) {

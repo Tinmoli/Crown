@@ -38,12 +38,17 @@ public final class RuntimeSnapshotManager {
     }
 
     public ConfigurationLoadReport reload() throws IOException {
+        return reload(candidate -> { });
+    }
+
+    public ConfigurationLoadReport reload(java.util.function.Consumer<RuntimeSnapshot> validator) throws IOException {
         if (current.get() == null) {
             throw new IllegalStateException(
                     "Crown configuration is not started");
         }
         ConfigurationLoadReport candidate =
                 bootstrap.initialize(configRoot);
+        validator.accept(candidate.snapshot());
         current.set(candidate.snapshot());
         return candidate;
     }

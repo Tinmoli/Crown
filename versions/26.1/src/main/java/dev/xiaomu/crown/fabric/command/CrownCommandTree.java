@@ -469,10 +469,10 @@ public final class CrownCommandTree {
         String actor = actorName(ctx.getSource());
 
         context.mainThread().whenComplete(
-                context.runtime().storageExecutor().submit(() ->
-                        applyCoinChange(
+                context.runtime().playerOperations().submit(id, () ->
+                        context.runtime().storageExecutor().submit(() -> applyCoinChange(
                                 context, id, name, action,
-                                amount, actor)),
+                                amount, actor))),
                 result -> ctx.getSource().sendSuccess(
                         () -> context.messages().render(
                                 "coin.changed", name,
@@ -506,9 +506,11 @@ public final class CrownCommandTree {
             default -> throw new IllegalArgumentException(
                     "Unknown coin action: " + action);
         };
-        return repository.adjustTitleCoins(
+        CoinAdjustmentResult result = repository.adjustTitleCoins(
                 id, delta, coinSettings.maximumBalance(),
                 actor, "admin:" + action, null, now);
+        context.runtime().playerTitleCache().load(id, name);
+        return result;
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> equip(

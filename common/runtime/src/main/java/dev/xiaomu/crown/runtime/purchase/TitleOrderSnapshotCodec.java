@@ -7,7 +7,6 @@ import com.google.gson.JsonParser;
 import dev.xiaomu.crown.domain.catalog.DefinitionId;
 import dev.xiaomu.crown.domain.catalog.DurationPolicy;
 import dev.xiaomu.crown.domain.catalog.DurationType;
-import dev.xiaomu.crown.domain.catalog.NamespacedId;
 import dev.xiaomu.crown.storage.model.OwnedTitleKind;
 import dev.xiaomu.crown.storage.model.ProductType;
 
@@ -29,8 +28,7 @@ public final class TitleOrderSnapshotCodec {
             "titlePrefix",
             "titleSuffix",
             "source",
-            "duration",
-            "mintShopAccount");
+            "duration");
     private static final Set<String> DURATION_KEYS =
             Set.of("type", "days");
 
@@ -56,15 +54,6 @@ public final class TitleOrderSnapshotCodec {
         root.addProperty("titlePrefix", snapshot.titlePrefix());
         root.addProperty("titleSuffix", snapshot.titleSuffix());
         root.addProperty("source", snapshot.source());
-        if (snapshot.mintShopAccount() == null) {
-            root.add("mintShopAccount",
-                    com.google.gson.JsonNull.INSTANCE);
-        } else {
-            root.addProperty(
-                    "mintShopAccount",
-                    snapshot.mintShopAccount().serialized());
-        }
-
         JsonObject duration = new JsonObject();
         duration.addProperty(
                 "type", snapshot.duration().type().name());
@@ -96,13 +85,6 @@ public final class TitleOrderSnapshotCodec {
                     ? null
                     : DefinitionId.of(requiredString(
                     root, "definitionId"));
-            JsonElement shopElement =
-                    root.get("mintShopAccount");
-            NamespacedId mintShopAccount = shopElement.isJsonNull()
-                    ? null
-                    : NamespacedId.parse(requiredString(
-                    root, "mintShopAccount"));
-
             JsonObject durationObject =
                     requiredObject(root, "duration");
             requireExactKeys(
@@ -135,8 +117,7 @@ public final class TitleOrderSnapshotCodec {
                     requiredString(root, "titlePrefix"),
                     requiredString(root, "titleSuffix"),
                     requiredString(root, "source"),
-                    duration,
-                    mintShopAccount);
+                    duration);
         } catch (SnapshotFormatException exception) {
             throw exception;
         } catch (JsonParseException

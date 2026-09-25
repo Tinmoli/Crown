@@ -48,8 +48,9 @@ public final class CrownMainGui extends SimpleGui {
         gui.setLockPlayerInventory(true);
         gui.setTitle(context.messages().renderRaw(layout.title()));
         gui.render(layout);
-        CrownGuiSessions.main(context, player);
         gui.open();
+        CrownGuiSessions.main(context, player);
+
     }
 
     private void render(GuiLayout layout) {
@@ -114,6 +115,11 @@ public final class CrownMainGui extends SimpleGui {
                 // 未知动作忽略，避免异常传播到网络线程。
             }
         }
+    }
+
+    @Override
+    public void onPlayerClose(boolean serverInitiated) {
+        CrownGuiSessions.clear(getPlayer());
     }
 
     private static MenuType<?> menuType(GuiScreenType type) {

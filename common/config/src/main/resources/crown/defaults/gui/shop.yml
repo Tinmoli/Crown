@@ -1,5 +1,5 @@
 # Crown 称号商城 GUI
-config-version: 3
+config-version: 4
 
 screen:
   type: "GENERIC_9X6"
@@ -23,7 +23,6 @@ text-values:
   permanent: "永久"
   days: "{days} 天"
   unlimited: "无限"
-  payment-mint: "金币"
   payment-title-coin: "称号币"
   payment-free: "免费"
   status-disabled: "已禁用"
@@ -72,7 +71,6 @@ title-items:
     lore:
       - "{title_description}"
       - ""
-      - "&e价格：{mint_price} {mint_unit}"
       - "&e称号币价格：{title_coin_price} {title_coin_unit}"
       - "&7有效期：{duration}"
       - "&a左键购买"

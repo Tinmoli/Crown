@@ -17,7 +17,6 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.server.level.ServerPlayer;
 
-import java.math.BigDecimal;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -240,25 +239,11 @@ public final class CrownTitleAdminCommands {
                                                         ctx, "days"))))));
     }
 
-    private static LiteralArgumentBuilder<CommandSourceStack> payment(
-            CrownServerContext context
-    ) {
-        var product = idArgument(context);
-        product.then(Commands.literal("free")
-                .executes(ctx -> submitSet(
-                        context, ctx, id(ctx), "payment",
-                        paymentFields("free", null))));
-        product.then(Commands.literal("title_coin")
-                .then(Commands.argument("price", StringArgumentType.word())
-                        .executes(ctx -> submitSet(
-                                context, ctx, id(ctx), "payment",
-                                paymentFields("title-coin", price(ctx))))));
-        product.then(Commands.literal("mint")
-                .then(Commands.argument("price", StringArgumentType.word())
-                        .executes(ctx -> submitSet(
-                                context, ctx, id(ctx), "payment",
-                                paymentFields("mint", price(ctx))))));
-        return Commands.literal("payment").then(product);
+    private static LiteralArgumentBuilder<CommandSourceStack> payment(CrownServerContext context) {
+        return Commands.literal("price").then(idArgument(context)
+                .then(Commands.argument("price", com.mojang.brigadier.arguments.LongArgumentType.longArg(0))
+                        .executes(ctx -> submitSet(context, ctx, id(ctx), "price",
+                                Map.of("price", com.mojang.brigadier.arguments.LongArgumentType.getLong(ctx, "price"))))));
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> permission(
@@ -647,31 +632,6 @@ public final class CrownTitleAdminCommands {
 
     private static String id(CommandContext<CommandSourceStack> ctx) {
         return StringArgumentType.getString(ctx, "id");
-    }
-
-    private static String price(
-            CommandContext<CommandSourceStack> ctx
-    ) {
-        String raw = StringArgumentType.getString(ctx, "price");
-        BigDecimal parsed = new BigDecimal(raw);
-        if (parsed.signum() < 0) {
-            throw new IllegalArgumentException(
-                    "Price cannot be negative");
-        }
-        return parsed.stripTrailingZeros().toPlainString();
-    }
-
-    private static Map<String, Object> paymentFields(
-            String type,
-            String price
-    ) {
-        if ("free".equals(type)) {
-            return Map.of("payment-options", Map.of("free", true));
-        }
-        if ("mint".equals(type)) {
-            return Map.of("payment-options", Map.of(type, Map.of("price", price)));
-        }
-        return Map.of("payment-options", Map.of(type, Map.of("price", price)));
     }
 
     private static Map<String, Object> fields(

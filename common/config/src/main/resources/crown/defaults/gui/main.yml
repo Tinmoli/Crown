@@ -1,5 +1,5 @@
 # Crown 主菜单 GUI
-config-version: 3
+config-version: 4
 
 screen:
   type: "GENERIC_9X3"
@@ -16,7 +16,6 @@ text-values:
   permanent: "永久"
   days: "{days} 天"
   unlimited: "无限"
-  payment-mint: "金币"
   payment-title-coin: "称号币"
   payment-free: "免费"
 

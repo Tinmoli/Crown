@@ -2,12 +2,9 @@ package dev.xiaomu.crown.fabric.gui;
 
 import dev.xiaomu.crown.config.model.CoreSettings;
 import dev.xiaomu.crown.config.model.GuiButton;
-import dev.xiaomu.crown.config.model.GuiItemTemplate;
 import dev.xiaomu.crown.config.model.GuiLayout;
 import dev.xiaomu.crown.config.model.GuiScreenType;
 import dev.xiaomu.crown.domain.catalog.TitleDefinition;
-import dev.xiaomu.crown.domain.catalog.PaymentPolicy;
-import dev.xiaomu.crown.domain.catalog.PaymentType;
 import dev.xiaomu.crown.fabric.CrownServerContext;
 import dev.xiaomu.crown.fabric.display.CrownNametagDisplay;
 import dev.xiaomu.crown.fabric.permission.CrownPermissions;
@@ -25,14 +22,13 @@ import net.minecraft.world.inventory.MenuType;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 
 /**
  * Crown 普通称号购买确认 GUI（DESIGN.md §16）。
  *
  * <p>展示价格、有效期与描述；确认后调用 {@link
  * dev.xiaomu.crown.runtime.purchase.UnifiedPurchaseService} 走完整异步
- * 购买状态机，扣款由 Mint 或内部称号币账本完成。点击确认后立即锁定按钮，
+ * 购买状态机，扣款由内部称号币账本完成。点击确认后立即锁定按钮，
  * 结果切回主线程反馈并刷新称号缓存。</p>
  */
 public final class CrownPurchaseConfirmGui extends SimpleGui {
@@ -98,24 +94,15 @@ public final class CrownPurchaseConfirmGui extends SimpleGui {
                         definition.payment(), core),
                 "duration", GuiFormatting.durationText(
                         definition.duration(), layout.textValues()),
-                "mint_price", optionPrice(PaymentType.MINT, layout.textValues()),
-                "title_coin_price", optionPrice(
-                        PaymentType.TITLE_COIN, layout.textValues()),
-                "mint_unit", core.purchase().mintCurrencyName(),
+                "title_coin_price", GuiFormatting.priceText(definition.payment(), layout.textValues()),
                 "title_coin_unit", core.titleCoin().name());
         Map<String, List<String>> multiline = Map.of(
                 "title_description", definition.description(),
-                "payment_price_lines", paymentPriceLines());
+                "payment_price_lines", List.of(layout.textValue("title-coin-price-line")));
 
         for (GuiButton button : layout.buttons().values()) {
-            if (("pay-mint".equals(button.action())
-                    && findPayment(PaymentType.MINT).isEmpty())
-                    || ("pay-title-coin".equals(button.action())
-                    && findPayment(PaymentType.TITLE_COIN).isEmpty())) {
-                continue;
-            }
+
             if (processing && ("confirm".equals(button.action())
-                    || "pay-mint".equals(button.action())
                     || "pay-title-coin".equals(button.action()))) {
                 continue;
             }
@@ -136,45 +123,29 @@ public final class CrownPurchaseConfirmGui extends SimpleGui {
         }
         switch (action) {
             case "cancel" -> close();
-            case "confirm" -> confirm(definition.payment());
-            case "pay-mint" -> findPayment(PaymentType.MINT)
-                    .ifPresent(this::confirm);
-            case "pay-title-coin" -> findPayment(PaymentType.TITLE_COIN)
-                    .ifPresent(this::confirm);
+            case "confirm" -> confirm();
+            case "pay-title-coin" -> confirm();
             default -> {
                 // preview / processing / 未知动作忽略。
             }
         }
     }
 
-    private Optional<PaymentPolicy> findPayment(PaymentType type) {
-        return definition.paymentOptions().stream()
-                .filter(payment -> payment.type() == type)
-                .findFirst();
-    }
-
-    private List<String> paymentPriceLines() {
-        var lines = new java.util.ArrayList<String>(2);
-        if (findPayment(PaymentType.MINT).isPresent()) {
-            lines.add(layout.textValue("mint-price-line"));
-        }
-        if (findPayment(PaymentType.TITLE_COIN).isPresent()) {
-            lines.add(layout.textValue("title-coin-price-line"));
-        }
-        return List.copyOf(lines);
-    }
-
-    private String optionPrice(
-            PaymentType type,
-            Map<String, String> textValues
-    ) {
-        return findPayment(type)
-                .map(payment -> GuiFormatting.priceText(payment, textValues))
-                .orElse("");
-    }
-
-    private void confirm(PaymentPolicy selectedPayment) {
+    private void confirm() {
         if (processing) {
+            return;
+        }
+        TitleDefinition current = context.runtime().snapshot().catalog()
+                .find(definition.id().value()).orElse(null);
+        if (!definition.equals(current)) {
+            getPlayer().sendSystemMessage(context.messages().render("purchase.changed"));
+            close();
+            return;
+        }
+        if (!context.permissions().checkSource(
+                PermissionSource.of(getPlayer().createCommandSourceStack()), CrownPermissions.COMMAND_BUY, 0)) {
+            getPlayer().sendSystemMessage(context.messages().render("command.no-permission"));
+            close();
             return;
         }
         processing = true;
@@ -186,16 +157,16 @@ public final class CrownPurchaseConfirmGui extends SimpleGui {
         boolean hasPermission = definition.permission().isEmpty()
                 || context.permissions().checkSource(
                 PermissionSource.of(player.createCommandSourceStack()),
-                CrownPermissions.title(definition.id().value()),
+                definition.permission().orElseThrow(),
                 0);
         CoreSettings.Purchase purchaseSettings =
                 context.core().purchase();
         PurchaseIdentifiers identifiers =
-                PurchaseIdentifiers.create(selectedPayment.type());
+                PurchaseIdentifiers.create();
 
         context.mainThread().whenComplete(
                 context.runtime().purchaseService().purchaseCatalog(
-                        playerId, definition, selectedPayment, hasPermission,
+                        playerId, definition, hasPermission,
                         purchaseSettings, identifiers),
                 result -> onResult(player, playerId, name, result),
                 failure -> onFailure(player));
@@ -242,7 +213,7 @@ public final class CrownPurchaseConfirmGui extends SimpleGui {
             case INSUFFICIENT_FUNDS ->
                     messages.render("purchase.failed.balance",
                             GuiFormatting.priceText(definition.payment(), layout.textValues()),
-                            "0");
+                            Long.toString(context.runtime().playerTitleCache().get(getPlayer().getUUID()).titleCoinBalance()));
             case PAYMENT_FAILED, PAYMENT_UNCERTAIN ->
                     messages.render("purchase.failed.provider");
             case DISABLED, HIDDEN, NOT_ON_SALE, PERMISSION_DENIED ->

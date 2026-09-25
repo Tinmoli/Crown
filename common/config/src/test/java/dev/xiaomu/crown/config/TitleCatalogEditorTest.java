@@ -57,6 +57,20 @@ class TitleCatalogEditorTest {
     }
 
     @Test
+    void guiCanEditPriceDurationAndPermissionOnMinimalProduct() throws Exception {
+        Fixture fixture = fixture();
+        fixture.editor.setAll(fixture.file, fixture.snapshot.core().safety(), "veteran",
+                Map.of("price", 25L, "duration.days", 7, "requirement.permission", "server.vip",
+                        "sale.global-stock", 12L), () -> { });
+        var title = new CrownConfigurationBootstrap().initialize(temporary).snapshot()
+                .catalog().find("veteran").orElseThrow();
+        assertEquals(25, title.payment().titleCoinPrice());
+        assertEquals(7, title.duration().days());
+        assertEquals("server.vip", title.permission().orElseThrow());
+        assertEquals(12, title.sale().globalStock());
+    }
+
+    @Test
     void invalidCandidateNeverReplacesOriginal() throws Exception {
         Fixture fixture = fixture();
         String original = Files.readString(

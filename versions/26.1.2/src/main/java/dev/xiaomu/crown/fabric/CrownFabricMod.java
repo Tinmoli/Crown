@@ -15,9 +15,7 @@ import dev.xiaomu.crown.fabric.display.CrownNametagDisplay;
 import dev.xiaomu.crown.fabric.display.CrownTabDisplay;
 import dev.xiaomu.crown.fabric.gui.CrownGuiSessions;
 import dev.xiaomu.crown.fabric.placeholder.CrownPlaceholders;
-import dev.xiaomu.crown.runtime.economy.DirectMintPaymentGateway;
 import dev.xiaomu.crown.runtime.lifecycle.CrownRuntime;
-import dev.xiaomu.mint.api.Mint;
 import net.fabricmc.api.DedicatedServerModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
@@ -39,15 +37,13 @@ import java.nio.file.Path;
  * Crown 的 Fabric 服务端入口。
  *
  * <p>实际运行时由公共 runtime 模块提供；版本目录只负责 Minecraft/Fabric
- * API 适配。Mint 同时由模组元数据声明为强制依赖，此处额外校验其 API
- * 主版本，避免以不兼容接口继续启动。</p>
+ * API 适配。购买统一使用内置称号币。</p>
  *
  * <p>生命周期严格绑定到服务端事件：SERVER_STARTING 装配 {@link CrownRuntime}，
  * SERVER_STOPPED 优雅关闭。装配失败直接抛出，阻止服务端在半初始化状态运行。</p>
  */
 public final class CrownFabricMod implements DedicatedServerModInitializer {
     public static final String MOD_ID = "crown";
-    private static final int REQUIRED_MINT_API_MAJOR = 1;
     private static final Logger LOGGER =
             LoggerFactory.getLogger(CrownFabricMod.class);
 
@@ -55,15 +51,11 @@ public final class CrownFabricMod implements DedicatedServerModInitializer {
     private volatile CrownServerContext context;
     private CrownServerContext commandContext;
     private int displayRefreshTicks;
+    private int recoveryTicks;
+    private boolean recoveryRunning;
 
     @Override
     public void onInitializeServer() {
-        if (Mint.API_MAJOR != REQUIRED_MINT_API_MAJOR) {
-            throw new IllegalStateException(
-                    "Crown requires Mint API major "
-                            + REQUIRED_MINT_API_MAJOR
-                            + ", but found " + Mint.API_MAJOR);
-        }
 
         commandContext = CrownServerContext.deferred(() -> context);
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess,
@@ -121,6 +113,10 @@ public final class CrownFabricMod implements DedicatedServerModInitializer {
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             CrownServerContext current = context;
             if (current != null) {
+                if (++recoveryTicks >= 600) {
+                    recoveryTicks = 0;
+                    recoverPurchases(current);
+                }
                 CustomTitleInputSessions.expire(current);
                 AdminTitleDraftSessions.expire(current);
                 AdminTitleTextEditSessions.expire(current);
@@ -145,8 +141,7 @@ public final class CrownFabricMod implements DedicatedServerModInitializer {
                     : InteractionResult.PASS;
         });
 
-        LOGGER.info("Crown Fabric adapter initialized; Mint API major={}",
-                Mint.API_MAJOR);
+        LOGGER.info("Crown Fabric adapter initialized; title coins enabled");
     }
 
     private void startRuntime(MinecraftServer server) {
@@ -156,12 +151,12 @@ public final class CrownFabricMod implements DedicatedServerModInitializer {
                 .getConfigDir().resolve(MOD_ID);
         CrownRuntime started = new CrownRuntime(
                 configRoot,
-                gameDirectory,
-                new DirectMintPaymentGateway());
+                gameDirectory);
         try {
             ConfigurationLoadReport report = started.start();
             runtime = started;
             context = new CrownServerContext(server, started);
+            recoverPurchases(context);
             CrownChatDisplay.install(context);
             CrownTabDisplay.install(context);
             displayRefreshTicks = 0;
@@ -213,6 +208,23 @@ public final class CrownFabricMod implements DedicatedServerModInitializer {
             throw new IllegalStateException(
                     "Crown failed to start", exception);
         }
+    }
+
+    private void recoverPurchases(CrownServerContext current) {
+        if (recoveryRunning || current.runtime().storageMaintenance()) return;
+        recoveryRunning = true;
+        current.mainThread().whenComplete(current.runtime().purchaseService().recover(100), report -> {
+            recoveryRunning = false;
+            if (report.manualIntervention() > 0) {
+                LOGGER.warn("Some Crown orders could not be recovered: {}", report);
+            }
+            if (report.granted() > 0) {
+                for (ServerPlayer player : current.server().getPlayerList().getPlayers()) preloadPlayer(player);
+            }
+        }, failure -> {
+            recoveryRunning = false;
+            LOGGER.warn("Crown order recovery failed", failure);
+        });
     }
 
     private void preloadPlayer(ServerPlayer player) {

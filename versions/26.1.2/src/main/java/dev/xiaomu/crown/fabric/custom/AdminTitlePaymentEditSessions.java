@@ -7,7 +7,6 @@ import dev.xiaomu.crown.fabric.permission.CrownPermissions;
 import dev.xiaomu.crown.runtime.platform.PermissionSource;
 import net.minecraft.server.level.ServerPlayer;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.Map;
@@ -120,6 +119,7 @@ public final class AdminTitlePaymentEditSessions {
         }
         Map<String, Object> fields = parse(input);
         if (fields == null) {
+            SESSIONS.putIfAbsent(player.getUUID(), expected);
             player.sendSystemMessage(context.messages().render(
                     "admin.title.edit.payment.invalid"));
             return;
@@ -131,32 +131,11 @@ public final class AdminTitlePaymentEditSessions {
     }
 
     private static Map<String, Object> parse(String input) {
-        if ("free".equalsIgnoreCase(input)) {
-            return Map.of("payment-options", Map.of("free", true));
-        }
-        if (input.regionMatches(true, 0, "title_coin=", 0, 11)) {
-            String amount = input.substring(11).strip();
-            try {
-                long value = Long.parseLong(amount);
-                if (value <= 0) return null;
-                return Map.of("payment-options",
-                        Map.of("title-coin", Map.of("price", Long.toString(value))));
-            } catch (NumberFormatException ignored) {
-                return null;
-            }
-        }
-        if (!input.regionMatches(true, 0, "mint=", 0, 5)) {
-            return null;
-        }
-        String amount = input.substring(5).strip();
-        if (amount.isBlank()) {
-            return null;
-        }
+        String amount = input.strip();
+        if (amount.startsWith("price=")) amount = amount.substring(6).strip();
         try {
-            BigDecimal price = new BigDecimal(amount);
-            if (price.signum() <= 0) return null;
-            return Map.of("payment-options", Map.of("mint", Map.of(
-                    "price", price.stripTrailingZeros().toPlainString())));
+            long value = Long.parseLong(amount);
+            return value < 0 ? null : Map.of("price", value);
         } catch (NumberFormatException ignored) {
             return null;
         }

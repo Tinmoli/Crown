@@ -1,5 +1,5 @@
 # Crown 仓库称号删除确认 GUI
-config-version: 3
+config-version: 4
 
 screen:
   type: "GENERIC_9X3"

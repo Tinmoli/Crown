@@ -3,7 +3,6 @@ package dev.xiaomu.crown.storage.backend;
 import dev.xiaomu.crown.config.model.StorageSettings;
 import dev.xiaomu.crown.domain.catalog.DefinitionId;
 import dev.xiaomu.crown.domain.catalog.DurationPolicy;
-import dev.xiaomu.crown.domain.catalog.NamespacedId;
 import dev.xiaomu.crown.domain.catalog.PaymentType;
 import dev.xiaomu.crown.domain.order.PurchaseOrderState;
 import dev.xiaomu.crown.domain.player.TitleSelection;
@@ -343,12 +342,10 @@ final class StorageMigrationAndSnapshotTest {
 
         PurchaseOrderRecord order = new PurchaseOrderRecord(
                 orderId,
-                UUID.randomUUID(),
                 playerId,
                 ProductType.CATALOG,
                 VIP,
-                PaymentType.MINT,
-                NamespacedId.parse("mint:coin"),
+                PaymentType.TITLE_COIN,
                 250,
                 "{\"text\":\"VIP\"}",
                 PurchaseOrderState.PREPARED,

@@ -8,15 +8,11 @@ import dev.xiaomu.crown.domain.catalog.DurationPolicy;
 import dev.xiaomu.crown.domain.catalog.DurationType;
 import dev.xiaomu.crown.domain.catalog.NamespacedId;
 import dev.xiaomu.crown.domain.catalog.PaymentPolicy;
-import dev.xiaomu.crown.domain.catalog.PaymentType;
 import dev.xiaomu.crown.domain.catalog.TitleContent;
 import dev.xiaomu.crown.domain.text.CrownTextParser;
 import dev.xiaomu.crown.domain.text.StyledText;
-import dev.xiaomu.crown.domain.text.TextParsePolicy;
 
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 
 /** 把同步后的 config.yml 映射转换为不可变核心设置。 */
@@ -56,15 +52,6 @@ public final class CoreSettingsParser {
 
         CoreSettings.Purchase purchase = ConfigParsing.wrap(
                 "purchase", () -> new CoreSettings.Purchase(
-                        NamespacedId.parse(YamlValues.nonBlankString(
-                                root, "purchase.mint-currency")),
-                        NamespacedId.parse(YamlValues.nonBlankString(
-                                root, "purchase.mint-shop-account")),
-                        YamlValues.nonBlankString(root,
-                                "purchase.mint-currency-name"),
-                        Duration.ofSeconds(YamlValues.integer(
-                                root,
-                                "purchase.operation-timeout-seconds")),
                         YamlValues.integer(root,
                                 "purchase.maximum-pending-orders-per-player")));
 
@@ -110,8 +97,7 @@ public final class CoreSettingsParser {
             CoreSettings.Safety safety
     ) {
         DurationPolicy duration = parseDuration(root, "custom-title.duration");
-        List<PaymentPolicy> paymentOptions = parseCustomTitlePayments(
-                root, YamlValues.nonBlankString(root, "purchase.mint-currency"));
+        PaymentPolicy payment = parsePrice(root, "custom-title.price");
 
         String prefixSource = YamlValues.string(
                 root, "custom-title.prefix");
@@ -136,7 +122,7 @@ public final class CoreSettingsParser {
                 "custom-title", () -> new CoreSettings.CustomTitle(
                         YamlValues.bool(root, "custom-title.enabled"),
                         duration,
-                        paymentOptions,
+                        payment,
                         prefixSource,
                         suffixSource,
                         prefix,
@@ -226,72 +212,8 @@ public final class CoreSettingsParser {
                 () -> new DurationPolicy(type, days));
     }
 
-    static PaymentPolicy parsePayment(
-            Map<String, Object> root,
-            String path,
-            boolean allowFree
-    ) {
-        PaymentType type = ConfigParsing.enumValue(
-                PaymentType.class,
-                YamlValues.nonBlankString(root, path + ".type"),
-                path + ".type");
-        if (type == PaymentType.FREE) {
-            if (!allowFree) {
-                throw new ConfigValueException(
-                        path + ".type", "FREE is not allowed here");
-            }
-            return PaymentPolicy.free();
-        }
-
-        String priceSource = YamlValues.nonBlankString(
-                root, path + ".price");
-        if (type == PaymentType.MINT) {
-            return ConfigParsing.wrap(path,
-                    () -> PaymentPolicy.mint(
-                            NamespacedId.parse(
-                                    YamlValues.nonBlankString(
-                                            root,
-                                            path + ".currency-id")),
-                            ConfigParsing.decimal(
-                                    priceSource, path + ".price")));
-        }
-        return ConfigParsing.wrap(path,
-                () -> new PaymentPolicy(
-                        PaymentType.TITLE_COIN,
-                        null,
-                        ConfigParsing.decimal(
-                                priceSource, path + ".price")));
-    }
-
-    private static List<PaymentPolicy> parseCustomTitlePayments(
-            Map<String, Object> root,
-            String mintCurrency
-    ) {
-        String path = "custom-title.payment-options";
-        Map<String, Object> options = YamlValues.map(root, path);
-        var result = new ArrayList<PaymentPolicy>();
-        for (String type : List.of("mint", "title-coin")) {
-            Object raw = options.get(type);
-            if (raw == null) continue;
-            Map<String, Object> option = ConfigParsing.mapValue(raw,
-                    path + "." + type);
-            Object enabled = YamlValues.findNullable(option, "enabled");
-            if (enabled instanceof Boolean flag && !flag) continue;
-            String price = YamlValues.nonBlankString(option, "price");
-            if (type.equals("mint")) {
-                result.add(PaymentPolicy.mint(NamespacedId.parse(mintCurrency),
-                        ConfigParsing.decimal(price, path + ".mint.price")));
-            } else {
-                result.add(new PaymentPolicy(PaymentType.TITLE_COIN, null,
-                        ConfigParsing.decimal(price,
-                                path + ".title-coin.price")));
-            }
-        }
-        if (result.isEmpty()) {
-            throw new ConfigValueException(path,
-                    "at least one enabled payment option is required");
-        }
-        return List.copyOf(result);
+    static PaymentPolicy parsePrice(Map<String, Object> values, String path) {
+        return ConfigParsing.wrap(path, () -> PaymentPolicy.titleCoin(YamlValues.longValue(values, path)));
     }
 
     static TitleContent titleContent(

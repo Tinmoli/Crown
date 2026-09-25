@@ -82,7 +82,7 @@ public record CoreSettings(
     public record CustomTitle(
             boolean enabled,
             DurationPolicy duration,
-            List<PaymentPolicy> paymentOptions,
+            PaymentPolicy payment,
             String prefixSource,
             String suffixSource,
             StyledText prefix,
@@ -98,12 +98,7 @@ public record CoreSettings(
     ) {
         public CustomTitle {
             duration = Objects.requireNonNull(duration, "duration");
-            paymentOptions = List.copyOf(Objects.requireNonNull(
-                    paymentOptions, "paymentOptions"));
-            if (paymentOptions.isEmpty()) {
-                throw new IllegalArgumentException(
-                        "At least one custom title payment option is required");
-            }
+            payment = Objects.requireNonNull(payment, "payment");
             prefixSource = Objects.requireNonNull(
                     prefixSource, "prefixSource");
             suffixSource = Objects.requireNonNull(
@@ -131,10 +126,6 @@ public record CoreSettings(
             }
             forbiddenWords = normalizedWords(
                     forbiddenWords, "forbidden word", true);
-        }
-
-        public PaymentPolicy payment() {
-            return paymentOptions.getFirst();
         }
 
         public TextParsePolicy inputPolicy(int maximumSourceLength) {
@@ -225,48 +216,13 @@ public record CoreSettings(
         }
     }
 
-    public record Purchase(
-            NamespacedId mintCurrency,
-            NamespacedId mintShopAccount,
-            String mintCurrencyName,
-            Duration operationTimeout,
-            int maximumPendingOrdersPerPlayer
-    ) {
-        public static final NamespacedId DEFAULT_MINT_CURRENCY =
-                NamespacedId.parse("mint:coin");
-        public static final NamespacedId DEFAULT_MINT_SHOP_ACCOUNT =
-                NamespacedId.parse("crown:shop");
-
-        public Purchase(
-                Duration operationTimeout,
-                int maximumPendingOrdersPerPlayer
-        ) {
-            this(DEFAULT_MINT_CURRENCY, DEFAULT_MINT_SHOP_ACCOUNT, "金币",
-                    operationTimeout, maximumPendingOrdersPerPlayer);
-        }
+    public record Purchase(int maximumPendingOrdersPerPlayer) {
         public Purchase {
-            mintCurrency = Objects.requireNonNull(
-                    mintCurrency, "mintCurrency").requireSimplePath();
-            mintShopAccount = Objects.requireNonNull(
-                    mintShopAccount, "mintShopAccount")
-                    .requireSimplePath();
-            mintCurrencyName = requireText(mintCurrencyName,
-                    "mint currency name", 64, false);
-            operationTimeout = Objects.requireNonNull(
-                    operationTimeout, "operationTimeout");
-            if (operationTimeout.compareTo(Duration.ofSeconds(1)) < 0
-                    || operationTimeout.compareTo(Duration.ofMinutes(5)) > 0) {
-                throw new IllegalArgumentException(
-                        "Purchase timeout must be 1..300 seconds");
-            }
-            if (maximumPendingOrdersPerPlayer < 1
-                    || maximumPendingOrdersPerPlayer > 10) {
-                throw new IllegalArgumentException(
-                        "Pending order limit must be between 1 and 10");
+            if (maximumPendingOrdersPerPlayer < 1 || maximumPendingOrdersPerPlayer > 10) {
+                throw new IllegalArgumentException("Pending order limit must be between 1 and 10");
             }
         }
     }
-
     public record Safety(
             int maximumTitleSourceLength,
             int maximumVisibleTitleLength,

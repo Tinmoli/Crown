@@ -5,7 +5,6 @@ import dev.xiaomu.crown.config.model.DisplayMode;
 import dev.xiaomu.crown.domain.text.CrownTextParser;
 import dev.xiaomu.crown.fabric.CrownServerContext;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
 import net.minecraft.server.level.ServerPlayer;
 

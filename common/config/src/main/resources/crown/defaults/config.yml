@@ -1,6 +1,6 @@
 # Crown 核心配置
 # 修改后可执行 /crown reload 热重载；数据库连接类设置除外。
-config-version: 2
+config-version: 3
 
 # 界面与消息语言。默认支持 zh_cn 和 en_us。
 language: "zh_cn"
@@ -40,17 +40,8 @@ custom-title:
     type: "PERMANENT"
     # LIMITED 时必须为正数；PERMANENT 时必须为 0。
     days: 0
-  # 可选支付方式。设置 enabled: false 或删除对应项即可关闭。
-  # 两项同时启用时，玩家在确认界面中二选一。
-  payment-options:
-    mint:
-      enabled: true
-      # 只填写价格数字，显示单位使用 purchase.mint-currency-name。
-      price: "1000.00"
-    title-coin:
-      enabled: true
-      # 只填写称号币数量，显示单位使用 title-coin.name。
-      price: "50"
+  # 称号币价格，必须是非负整数；0 表示免费领取。
+  price: 50
   # 玩家只输入正文，前后缀由服务器统一控制。
   prefix: "&7["
   suffix: "&7]"
@@ -92,15 +83,6 @@ display:
 
 # 购买与异步操作限制。
 purchase:
-  # 所有 titles.yml 和 custom-title 的 Mint 商品都使用此货币 ID。
-  # 不要在每个称号商品中重复填写 currency-id。
-  mint-currency: "mint:coin"
-  # 仅用于界面和消息显示，不参与 Mint 查找或扣款。
-  mint-currency-name: "金币"
-  # Mint 收款账户 ID。
-  mint-shop-account: "crown:shop"
-  # 单次经济操作超时时间。
-  operation-timeout-seconds: 15
   # 每名玩家允许存在的未完成订单数。
   maximum-pending-orders-per-player: 1
 

@@ -102,8 +102,9 @@ public final class CrownWarehouseGui extends SimpleGui {
         gui.setLockPlayerInventory(true);
         gui.setTitle(context.messages().renderRaw(layout.title()));
         gui.draw(layout);
-        CrownGuiSessions.warehouse(context, player);
         gui.open();
+        CrownGuiSessions.warehouse(context, player);
+
     }
 
     private void draw(GuiLayout layout) {
@@ -328,6 +329,11 @@ public final class CrownWarehouseGui extends SimpleGui {
         }
         return (owned.size() + contentSlots.length - 1)
                 / contentSlots.length;
+    }
+
+    @Override
+    public void onPlayerClose(boolean serverInitiated) {
+        CrownGuiSessions.clear(getPlayer());
     }
 
     private static MenuType<?> menuType(GuiScreenType type) {

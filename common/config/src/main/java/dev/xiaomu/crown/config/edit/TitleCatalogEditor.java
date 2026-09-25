@@ -207,14 +207,18 @@ public final class TitleCatalogEditor {
             String path,
             Object value
     ) {
-        if (!path.matches("[a-z0-9-]+(?:\\.[a-z0-9-]+)*")) {
+        if (!java.util.Set.of("enabled", "visible", "category", "text", "prefix", "suffix",
+                "icon", "description", "price", "duration.type", "duration.days",
+                "requirement.permission", "requirement.deny-if-missing-permission",
+                "sale.starts-at", "sale.ends-at", "sale.global-stock", "sale.per-player-limit")
+                .contains(path)) {
             throw new IllegalArgumentException(
                     "Invalid title field path: " + path);
         }
         String[] parts = path.split("\\.");
         Map<String, Object> current = root;
         for (int index = 0; index < parts.length - 1; index++) {
-            Object child = current.get(parts[index]);
+            Object child = current.computeIfAbsent(parts[index], ignored -> new LinkedHashMap<>());
             if (!(child instanceof Map<?, ?> map)) {
                 throw new IllegalArgumentException(
                         "Unknown title field: " + path);
@@ -222,10 +226,6 @@ public final class TitleCatalogEditor {
             current = (Map<String, Object>) map;
         }
         String leaf = parts[parts.length - 1];
-        if (!current.containsKey(leaf)) {
-            throw new IllegalArgumentException(
-                    "Unknown title field: " + path);
-        }
         current.put(leaf, value);
     }
 
@@ -253,10 +253,7 @@ public final class TitleCatalogEditor {
         sale.put("per-player-limit", -1);
         definition.put("sale", sale);
 
-        var paymentOptions = new LinkedHashMap<String, Object>();
-        paymentOptions.put("mint", Map.of("price", "1000.00"));
-        paymentOptions.put("title-coin", Map.of("price", "50"));
-        definition.put("payment-options", paymentOptions);
+        definition.put("price", 50L);
         return definition;
     }
 

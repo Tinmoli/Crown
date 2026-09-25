@@ -1,5 +1,5 @@
 # Crown 玩家称号仓库 GUI
-config-version: 3
+config-version: 4
 
 screen:
   type: "GENERIC_9X6"

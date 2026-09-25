@@ -120,19 +120,7 @@ public final class GuiItems {
                 .orElse(Items.BARRIER);
     }
 
-    private static String substitute(
-            String template,
-            Map<String, String> variables
-    ) {
-        if (template.indexOf('{') < 0) {
-            return template;
-        }
-        String result = template;
-        for (Map.Entry<String, String> entry : variables.entrySet()) {
-            result = result.replace(
-                    "{" + entry.getKey() + "}",
-                    entry.getValue() == null ? "" : entry.getValue());
-        }
-        return result;
+    private static String substitute(String template, Map<String, String> variables) {
+        return dev.xiaomu.crown.config.model.GuiVariables.substitute(template, variables);
     }
 }

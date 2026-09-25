@@ -2,7 +2,6 @@ package dev.xiaomu.crown.fabric.custom;
 
 import dev.xiaomu.crown.config.model.CoreSettings;
 import dev.xiaomu.crown.domain.catalog.TitleContent;
-import dev.xiaomu.crown.domain.catalog.PaymentPolicy;
 import dev.xiaomu.crown.domain.text.CrownTextParser;
 import dev.xiaomu.crown.domain.text.StyledText;
 import dev.xiaomu.crown.domain.text.TextParsePolicy;
@@ -35,6 +34,11 @@ public final class PlayerCustomTitleSessions {
     ) {
         CoreSettings.CustomTitle settings = context.core().customTitle();
         UUID playerId = player.getUUID();
+        if (!context.permissions().checkSource(PermissionSource.of(player.createCommandSourceStack()),
+                CrownPermissions.COMMAND_CUSTOM, 0)) {
+            player.sendSystemMessage(context.messages().render("command.no-permission"));
+            return false;
+        }
         if (!settings.enabled()
                 || CustomTitleInputSessions.hasSession(playerId)
                 || AdminTitleDraftSessions.hasSession(playerId)
@@ -142,16 +146,6 @@ public final class PlayerCustomTitleSessions {
             ServerPlayer player,
             UUID sessionId
     ) {
-        confirm(context, player, sessionId,
-                context.core().customTitle().payment());
-    }
-
-    public static void confirm(
-            CrownServerContext context,
-            ServerPlayer player,
-            UUID sessionId,
-            PaymentPolicy selectedPayment
-    ) {
         UUID playerId = player.getUUID();
         Session session = current(playerId, sessionId);
         if (session == null || session.phase() != Phase.CONFIRM
@@ -174,11 +168,11 @@ public final class PlayerCustomTitleSessions {
             return;
         }
         CoreSettings.CustomTitle custom = context.core().customTitle();
-        PurchaseIdentifiers ids = PurchaseIdentifiers.create(selectedPayment.type());
+        PurchaseIdentifiers ids = PurchaseIdentifiers.create();
         String playerName = player.getGameProfile().name();
         context.mainThread().whenComplete(
                 context.runtime().purchaseService().purchaseCustom(
-                        playerId, custom, selectedPayment, validation.content(),
+                        playerId, custom, validation.content(),
                         context.core().purchase(), ids),
                 result -> {
                     SESSIONS.remove(playerId, processing);
@@ -197,7 +191,7 @@ public final class PlayerCustomTitleSessions {
                         player.sendSystemMessage(context.messages().render(
                                 "purchase.success", validation.content().textSource()));
                     } else {
-                        player.sendSystemMessage(resultMessage(context, result.status()));
+                        player.sendSystemMessage(resultMessage(context, player, result.status()));
                     }
                 },
                 failure -> {
@@ -244,6 +238,11 @@ public final class PlayerCustomTitleSessions {
             CrownServerContext context, ServerPlayer player, String source
     ) {
         CoreSettings.CustomTitle settings = context.core().customTitle();
+        if (!context.permissions().checkSource(PermissionSource.of(player.createCommandSourceStack()),
+                CrownPermissions.COMMAND_CUSTOM, 0)) {
+            player.sendSystemMessage(context.messages().render("command.no-permission"));
+            return Validation.invalid("missing custom title permission");
+        }
         if (!settings.enabled()) return Validation.invalid("custom titles are disabled");
         boolean color = context.permissions().checkSource(
                 PermissionSource.of(player.createCommandSourceStack()),
@@ -275,11 +274,12 @@ public final class PlayerCustomTitleSessions {
     }
 
     private static net.minecraft.network.chat.Component resultMessage(
-            CrownServerContext context, PurchaseStatus status
+            CrownServerContext context, ServerPlayer player, PurchaseStatus status
     ) {
         return switch (status) {
             case INSUFFICIENT_FUNDS -> context.messages().render(
-                    "purchase.failed.balance", "?", "?");
+                    "purchase.failed.balance", Long.toString(context.core().customTitle().payment().titleCoinPrice()),
+                    Long.toString(context.runtime().playerTitleCache().get(player.getUUID()).titleCoinBalance()));
             case PAYMENT_FAILED, PAYMENT_UNCERTAIN ->
                     context.messages().render("purchase.failed.provider");
             case TOO_MANY_PENDING ->

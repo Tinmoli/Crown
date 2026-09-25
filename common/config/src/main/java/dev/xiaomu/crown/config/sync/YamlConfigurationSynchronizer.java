@@ -9,7 +9,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -181,7 +180,9 @@ public final class YamlConfigurationSynchronizer {
             }
 
             Object actual = user.get(key);
-            if (expected instanceof Map<?, ?> expectedMap) {
+            if ("custom-title.price".equals(childPath)) {
+                result.put(key, ConfigMaps.deepCopy(actual));
+            } else if (expected instanceof Map<?, ?> expectedMap) {
                 if (actual instanceof Map<?, ?> actualMap) {
                     result.put(key, synchronizeMap(
                             ConfigMaps.castMap(expectedMap),
@@ -213,35 +214,9 @@ public final class YamlConfigurationSynchronizer {
     }
 
     private static Map<String, Object> synchronizeTitles(
-            Map<String, Object> template,
-            Map<String, Object> user,
-            MutableState state
+            Map<String, Object> template, Map<String, Object> user, MutableState state
     ) {
-        Map<String, Object> exemplar = template.values().stream()
-                .filter(Map.class::isInstance)
-                .map(value -> ConfigMaps.castMap((Map<?, ?>) value))
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "titles template has no exemplar"));
-
-        var result = new LinkedHashMap<String, Object>();
-        for (Map.Entry<String, Object> entry : user.entrySet()) {
-            if (!(entry.getValue() instanceof Map<?, ?> titleMap)) {
-                state.changed = true;
-                continue;
-            }
-            Map<String, Object> exact =
-                    template.get(entry.getKey()) instanceof Map<?, ?> map
-                            ? ConfigMaps.castMap(map)
-                            : exemplar;
-            result.put(entry.getKey(), synchronizeMap(
-                    exact,
-                    ConfigMaps.castMap(titleMap),
-                    "titles.*",
-                    ConfigurationKind.TITLES,
-                    state));
-        }
-        return result;
+        return ConfigMaps.deepCopyMap(user);
     }
 
     private static boolean isSupportedGuiOptionalField(String key) {

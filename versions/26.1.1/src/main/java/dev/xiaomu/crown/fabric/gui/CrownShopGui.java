@@ -7,7 +7,6 @@ import dev.xiaomu.crown.config.model.GuiItemTemplate;
 import dev.xiaomu.crown.config.model.GuiLayout;
 import dev.xiaomu.crown.config.model.GuiScreenType;
 import dev.xiaomu.crown.domain.catalog.TitleDefinition;
-import dev.xiaomu.crown.domain.catalog.PaymentType;
 import dev.xiaomu.crown.fabric.CrownServerContext;
 import dev.xiaomu.crown.fabric.custom.PlayerCustomTitleSessions;
 import dev.xiaomu.crown.fabric.permission.CrownPermissions;
@@ -65,6 +64,11 @@ public final class CrownShopGui extends SimpleGui {
     ) {
         Objects.requireNonNull(context, "context");
         Objects.requireNonNull(player, "player");
+        if (!context.permissions().checkSource(PermissionSource.of(player.createCommandSourceStack()),
+                CrownPermissions.COMMAND_SHOP, 0)) {
+            player.sendSystemMessage(context.messages().render("command.no-permission"));
+            return;
+        }
         UUID playerId = player.getUUID();
 
         context.mainThread().whenComplete(
@@ -114,8 +118,9 @@ public final class CrownShopGui extends SimpleGui {
         gui.setLockPlayerInventory(true);
         gui.setTitle(context.messages().renderRaw(layout.title()));
         gui.draw(layout);
-        CrownGuiSessions.shop(context, player);
         gui.open();
+        CrownGuiSessions.shop(context, player);
+
     }
 
     private void draw(GuiLayout layout) {
@@ -134,7 +139,9 @@ public final class CrownShopGui extends SimpleGui {
         int pageCount = pageCount();
         Map<String, String> pageVariables = Map.of(
                 "page", Integer.toString(page + 1),
-                "pages", Integer.toString(pageCount));
+                "pages", Integer.toString(pageCount),
+                "custom_price", GuiFormatting.priceText(context.core().customTitle().payment(), layout.textValues())
+                        + " " + context.core().titleCoin().name());
 
         for (GuiButton button : layout.buttons().values()) {
             GuiElementBuilder element = items
@@ -186,11 +193,7 @@ public final class CrownShopGui extends SimpleGui {
                 "title_icon", definition.icon().serialized(),
                 "title_preview", GuiFormatting.previewSource(
                         definition.content()),
-                "mint_price", optionPrice(definition, PaymentType.MINT,
-                        layout.textValues()),
-                "title_coin_price", optionPrice(definition,
-                        PaymentType.TITLE_COIN, layout.textValues()),
-                "mint_unit", core.purchase().mintCurrencyName(),
+                "title_coin_price", GuiFormatting.priceText(definition.payment(), layout.textValues()),
                 "title_coin_unit", core.titleCoin().name(),
                 "duration", GuiFormatting.durationText(
                         definition.duration(), layout.textValues()),
@@ -210,16 +213,6 @@ public final class CrownShopGui extends SimpleGui {
             });
         }
         return element;
-    }
-
-    private static String optionPrice(TitleDefinition definition,
-                                      PaymentType type,
-                                      Map<String, String> textValues) {
-        return definition.paymentOptions().stream()
-                .filter(payment -> payment.type() == type)
-                .findFirst()
-                .map(payment -> GuiFormatting.priceText(payment, textValues))
-                .orElse("");
     }
 
     private GuiElementBuilder safeTitleElement(
@@ -262,19 +255,19 @@ public final class CrownShopGui extends SimpleGui {
             LanguageCatalog languages
     ) {
         if (!definition.sale().onSaleAt(now)) {
-            return "Outside sale period";
+            return context.runtime().snapshot().gui().require("shop").textValue("status-not_on_sale");
         }
         if (definition.permission().isPresent()
                 && !hasTitlePermission(definition)) {
-            return "Missing purchase permission";
+            return context.runtime().snapshot().gui().require("shop").textValue("status-permission_denied");
         }
-        return "Currently unavailable";
+        return context.runtime().snapshot().gui().require("shop").textValue("status-disabled");
     }
 
     private boolean hasTitlePermission(TitleDefinition definition) {
         return context.permissions().checkSource(
                 PermissionSource.of(getPlayer().createCommandSourceStack()),
-                CrownPermissions.title(definition.id().value()),
+                definition.permission().orElseThrow(),
                 0);
     }
 
@@ -332,6 +325,11 @@ public final class CrownShopGui extends SimpleGui {
         }
         return (catalog.size() + contentSlots.length - 1)
                 / contentSlots.length;
+    }
+
+    @Override
+    public void onPlayerClose(boolean serverInitiated) {
+        CrownGuiSessions.clear(getPlayer());
     }
 
     private static MenuType<?> menuType(GuiScreenType type) {

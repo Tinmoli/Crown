@@ -1,5 +1,5 @@
 # Crown 管理员商品管理 GUI
-config-version: 3
+config-version: 4
 
 screen:
   type: "GENERIC_9X6"
@@ -23,7 +23,6 @@ text-values:
   days: "{days} 天"
   unlimited: "无限"
   none: "无"
-  payment-mint: "金币"
   payment-title-coin: "称号币"
   payment-free: "免费"
   detail-price: "&e价格：{price} {price_unit}"
@@ -38,17 +37,17 @@ text-values:
   change-icon: "&e更换图标"
   change-icon-hint: "&7手持目标物品后点击"
   current-icon: "&7当前：&f{icon}"
-  sale-settings: "&e销售设置（只读）"
+  sale-settings: "&e销售设置"
   sale-start: "&7开始：&f{value}"
   sale-end: "&7结束：&f{value}"
   stock: "&7库存：&f{value}"
   player-limit: "&7单人限购：&f{value}"
-  sale-hint: "&7使用 /crown title sale-* 修改"
-  payment: "&e支付设置（只读）"
+  sale-hint: "&7点击后在聊天中修改销售时间、库存或限购"
+  payment: "&e称号币价格"
   payment-type: "&7类型：&f{type}"
-  payment-hint: "&7使用 /crown title payment 修改"
-  duration: "&e期限设置（只读）"
-  duration-hint: "&7使用 /crown title duration 修改"
+  payment-hint: "&7点击后在聊天中输入非负整数价格"
+  duration: "&e期限设置"
+  duration-hint: "&7点击后在聊天中输入 duration=permanent 或 duration=limited:30"
   delete: "&c删除商品"
   delete-no-refund: "&c不退款"
   delete-irreversible: "&7不可撤销"
@@ -70,7 +69,7 @@ buttons:
     item: "minecraft:anvil"
     name: "&a创建商品草稿"
     lore:
-      - "&7用 /crown title create <ID> 创建"
+      - "&7点击后在聊天中输入新商品 ID"
   close:
     slot: 49
     item: "minecraft:barrier"

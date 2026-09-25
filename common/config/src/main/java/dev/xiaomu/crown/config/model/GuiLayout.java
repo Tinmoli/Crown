@@ -134,7 +134,6 @@ public record GuiLayout(
     private static boolean allowedOverlay(String left, String right) {
         Set<String> pair = Set.of(left, right);
         return pair.equals(Set.of("confirm", "processing"))
-                || pair.equals(Set.of("pay-mint", "processing"))
                 || pair.equals(Set.of("pay-title-coin", "processing"));
     }
 }

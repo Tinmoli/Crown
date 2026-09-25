@@ -3,7 +3,6 @@ package dev.xiaomu.crown.runtime.purchase;
 import com.google.gson.JsonObject;
 import dev.xiaomu.crown.config.model.CoreSettings;
 import dev.xiaomu.crown.domain.catalog.DefinitionId;
-import dev.xiaomu.crown.domain.catalog.NamespacedId;
 import dev.xiaomu.crown.domain.catalog.PaymentPolicy;
 import dev.xiaomu.crown.domain.catalog.PaymentType;
 import dev.xiaomu.crown.domain.catalog.SalePolicy;
@@ -11,13 +10,8 @@ import dev.xiaomu.crown.domain.catalog.TitleContent;
 import dev.xiaomu.crown.domain.catalog.TitleDefinition;
 import dev.xiaomu.crown.domain.order.PurchaseOrderState;
 import dev.xiaomu.crown.runtime.concurrent.PlayerOperationQueue;
-import dev.xiaomu.crown.runtime.economy.MintPaymentGateway;
-import dev.xiaomu.crown.runtime.economy.MintPaymentResult;
-import dev.xiaomu.crown.runtime.economy.MintPriceQuote;
 import dev.xiaomu.crown.storage.async.AsyncStorageExecutor;
 import dev.xiaomu.crown.storage.model.AuditRecord;
-import dev.xiaomu.crown.storage.model.InternalPaymentStatus;
-import dev.xiaomu.crown.storage.model.OrderPreparationStatus;
 import dev.xiaomu.crown.storage.model.OwnedTitleRecord;
 import dev.xiaomu.crown.storage.model.ProductType;
 import dev.xiaomu.crown.storage.model.PurchaseOrderRecord;
@@ -25,11 +19,8 @@ import dev.xiaomu.crown.storage.repository.CrownRepository;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -37,7 +28,7 @@ import java.util.concurrent.CompletionStage;
 /**
  * 普通与自定义称号共用的异步购买状态机。
  *
- * <p>所有 JDBC 操作均提交到存储执行器，Mint 阶段只组合
+ * <p>所有 JDBC 操作均提交到存储执行器，购买流程只组合
  * CompletionStage，生产代码不进行阻塞等待。</p>
  */
 public final class UnifiedPurchaseService {
@@ -45,12 +36,9 @@ public final class UnifiedPurchaseService {
             "crown:title_purchase";
     private static final String CUSTOM_REASON =
             "crown:custom_title_purchase";
-    private static final System.Logger LOGGER = System.getLogger(
-            UnifiedPurchaseService.class.getName());
 
     private final CrownRepository repository;
     private final AsyncStorageExecutor storage;
-    private final MintPaymentGateway mint;
     private final PlayerOperationQueue playerOperations;
     private final TitleOrderSnapshotCodec snapshotCodec;
     private final Clock clock;
@@ -58,13 +46,11 @@ public final class UnifiedPurchaseService {
     public UnifiedPurchaseService(
             CrownRepository repository,
             AsyncStorageExecutor storage,
-            MintPaymentGateway mint,
             PlayerOperationQueue playerOperations
     ) {
         this(
                 repository,
                 storage,
-                mint,
                 playerOperations,
                 new TitleOrderSnapshotCodec(),
                 Clock.systemUTC());
@@ -73,7 +59,6 @@ public final class UnifiedPurchaseService {
     UnifiedPurchaseService(
             CrownRepository repository,
             AsyncStorageExecutor storage,
-            MintPaymentGateway mint,
             PlayerOperationQueue playerOperations,
             TitleOrderSnapshotCodec snapshotCodec,
             Clock clock
@@ -81,7 +66,6 @@ public final class UnifiedPurchaseService {
         this.repository = Objects.requireNonNull(
                 repository, "repository");
         this.storage = Objects.requireNonNull(storage, "storage");
-        this.mint = Objects.requireNonNull(mint, "mint");
         this.playerOperations = Objects.requireNonNull(
                 playerOperations, "playerOperations");
         this.snapshotCodec = Objects.requireNonNull(
@@ -96,39 +80,10 @@ public final class UnifiedPurchaseService {
             CoreSettings.Purchase settings,
             PurchaseIdentifiers identifiers
     ) {
-        return purchaseCatalog(playerId, definition, definition.payment(),
-                hasRequiredPermission, settings, identifiers);
-    }
-
-    public CompletionStage<PurchaseResult> purchaseCatalog(
-            UUID playerId,
-            TitleDefinition definition,
-            PaymentPolicy selectedPayment,
-            boolean hasRequiredPermission,
-            CoreSettings.Purchase settings,
-            PurchaseIdentifiers identifiers
-    ) {
         Objects.requireNonNull(definition, "definition");
-        Objects.requireNonNull(selectedPayment, "selectedPayment");
         Objects.requireNonNull(settings, "settings");
-        if (!definition.paymentOptions().contains(selectedPayment)) {
-            throw new IllegalArgumentException(
-                    "Selected payment is not configured for this product");
-        }
-        TitleDefinition selectedDefinition =
-                definition.withPayment(selectedPayment);
-        PaymentPolicy payment = selectedDefinition.payment();
-        identifiers.requirePaymentType(payment.type());
-
-        NamespacedId shopAccount =
-                payment.type() == PaymentType.MINT
-                        ? settings.mintShopAccount()
-                        : null;
-        TitleOrderSnapshot titleSnapshot =
-                TitleOrderSnapshot.catalog(
-                        identifiers.entryId(),
-                        selectedDefinition,
-                        shopAccount);
+        PaymentPolicy payment = definition.payment();
+        TitleOrderSnapshot titleSnapshot = TitleOrderSnapshot.catalog(identifiers.entryId(), definition);
         SalePolicy sale = definition.sale();
         PurchaseStatus rejection = catalogRejection(
                 definition,
@@ -156,29 +111,11 @@ public final class UnifiedPurchaseService {
             CoreSettings.Purchase purchaseSettings,
             PurchaseIdentifiers identifiers
     ) {
-        return purchaseCustom(playerId, customSettings, customSettings.payment(),
-                validatedContent, purchaseSettings, identifiers);
-    }
-
-    public CompletionStage<PurchaseResult> purchaseCustom(
-            UUID playerId,
-            CoreSettings.CustomTitle customSettings,
-            PaymentPolicy selectedPayment,
-            TitleContent validatedContent,
-            CoreSettings.Purchase purchaseSettings,
-            PurchaseIdentifiers identifiers
-    ) {
         Objects.requireNonNull(customSettings, "customSettings");
         Objects.requireNonNull(validatedContent, "validatedContent");
         Objects.requireNonNull(
                 purchaseSettings, "purchaseSettings");
-        PaymentPolicy payment = Objects.requireNonNull(selectedPayment,
-                "selectedPayment");
-        if (!customSettings.paymentOptions().contains(payment)) {
-            throw new IllegalArgumentException(
-                    "Selected custom payment is not configured");
-        }
-        identifiers.requirePaymentType(payment.type());
+        PaymentPolicy payment = customSettings.payment();
 
         if (!validatedContent.prefixSource().equals(
                 customSettings.prefixSource())
@@ -188,16 +125,11 @@ public final class UnifiedPurchaseService {
                     "Custom title does not use server prefix/suffix");
         }
 
-        NamespacedId shopAccount =
-                payment.type() == PaymentType.MINT
-                        ? purchaseSettings.mintShopAccount()
-                        : null;
         TitleOrderSnapshot titleSnapshot =
                 TitleOrderSnapshot.custom(
                         identifiers.entryId(),
                         validatedContent,
-                        customSettings.duration(),
-                        shopAccount);
+                        customSettings.duration());
         PurchaseRequest request = new PurchaseRequest(
                 playerId,
                 identifiers,
@@ -215,8 +147,7 @@ public final class UnifiedPurchaseService {
     }
 
     /**
-     * 扫描并恢复一批未完成订单。损坏且可能已经完成 Mint 扣款的订单
-     * 保持非终结状态并计入人工干预，不会冒险释放库存或重新生成事务。
+     * 扫描并恢复一批未完成的称号币订单。
      */
     public CompletionStage<PurchaseRecoveryReport> recover(
             int limit
@@ -271,27 +202,7 @@ public final class UnifiedPurchaseService {
     private CompletionStage<PurchaseResult> quoteAndPrepare(
             PurchaseRequest request
     ) {
-        final PurchaseOrderRecord order;
-        try {
-            order = createOrderRecord(request, clock.instant());
-        } catch (RuntimeException exception) {
-            if (request.payment().type() == PaymentType.MINT) {
-                LOGGER.log(System.Logger.Level.WARNING,
-                        "Crown could not quote Mint currency {0} for order {1}. "
-                                + "Check purchase.mint-currency against Mint's "
-                                + "registered currency IDs. Reason: {2}",
-                        request.payment().mintCurrencyId()
-                                .map(NamespacedId::serialized)
-                                .orElse("<missing>"),
-                        request.identifiers().orderId(), exception.toString());
-                LOGGER.log(System.Logger.Level.DEBUG,
-                        "Mint quote failure", exception);
-            }
-            return completed(PurchaseResult.of(
-                    PurchaseStatus.PAYMENT_FAILED,
-                    request.identifiers().orderId(),
-                    "quote_failed"));
-        }
+        PurchaseOrderRecord order = createOrderRecord(request, clock.instant());
 
         return storage.submit(() -> repository.prepareOrder(
                         order,
@@ -329,34 +240,14 @@ public final class UnifiedPurchaseService {
             Instant now
     ) {
         PaymentPolicy payment = request.payment();
-        long amountMinor;
-        NamespacedId currency = null;
-        if (payment.type() == PaymentType.FREE) {
-            amountMinor = 0;
-        } else if (payment.type() == PaymentType.TITLE_COIN) {
-            amountMinor = payment.titleCoinPrice();
-        } else {
-            NamespacedId configuredCurrency =
-                    payment.mintCurrencyId().orElseThrow();
-            MintPriceQuote quote = mint.quote(
-                    configuredCurrency,
-                    payment.configuredPrice().orElseThrow());
-            if (!quote.currency().equals(configuredCurrency)) {
-                throw new IllegalStateException(
-                        "Mint quote returned another currency");
-            }
-            currency = quote.currency();
-            amountMinor = quote.amountMinor();
-        }
+        long amountMinor = payment.titleCoinPrice();
 
         return new PurchaseOrderRecord(
                 request.identifiers().orderId(),
-                request.identifiers().mintTransactionId(),
                 request.playerId(),
                 request.productType(),
                 request.definitionId(),
                 payment.type(),
-                currency,
                 amountMinor,
                 snapshotCodec.encode(request.titleSnapshot()),
                 PurchaseOrderState.PREPARED,
@@ -390,18 +281,10 @@ public final class UnifiedPurchaseService {
                 || !Objects.equals(
                 order.definitionId(), request.definitionId())
                 || order.paymentType() != request.payment().type()
-                || !Objects.equals(
-                order.mintTransactionId(),
-                request.identifiers().mintTransactionId())) {
+) {
             return false;
         }
 
-        if (order.paymentType() == PaymentType.MINT
-                && !Objects.equals(
-                order.currencyId(),
-                request.payment().mintCurrency())) {
-            return false;
-        }
         if (order.paymentType() == PaymentType.FREE
                 && order.amountMinor() != 0) {
             return false;
@@ -425,6 +308,7 @@ public final class UnifiedPurchaseService {
             PurchaseOrderRecord order,
             boolean recovery
     ) {
+
         final TitleOrderSnapshot titleSnapshot;
         try {
             titleSnapshot = snapshotCodec.decode(
@@ -476,10 +360,6 @@ public final class UnifiedPurchaseService {
             TitleOrderSnapshot titleSnapshot,
             boolean recovery
     ) {
-        if (order.paymentType() == PaymentType.MINT) {
-            return processMintPayment(
-                    order, titleSnapshot, recovery);
-        }
 
         String actor = recovery
                 ? "system:recovery"
@@ -506,109 +386,6 @@ public final class UnifiedPurchaseService {
                                     order.orderId(),
                                     "invalid_internal_payment_state"));
                 });
-    }
-
-    private CompletionStage<PurchaseResult> processMintPayment(
-            PurchaseOrderRecord order,
-            TitleOrderSnapshot titleSnapshot,
-            boolean recovery
-    ) {
-        UUID transactionId =
-                Objects.requireNonNull(
-                        order.mintTransactionId(),
-                        "mintTransactionId");
-        NamespacedId currency =
-                Objects.requireNonNull(
-                        order.currencyId(), "currencyId");
-        NamespacedId shopAccount =
-                Objects.requireNonNull(
-                        titleSnapshot.mintShopAccount(),
-                        "mintShopAccount");
-
-        final CompletionStage<MintPaymentResult> paymentStage;
-        try {
-            paymentStage = mint.charge(
-                    transactionId,
-                    order.playerId(),
-                    shopAccount,
-                    currency,
-                    order.amountMinor(),
-                    reason(order),
-                    metadata(order, titleSnapshot),
-                    orderTimeout(order));
-        } catch (RuntimeException exception) {
-            LOGGER.log(System.Logger.Level.WARNING,
-                    "Crown could not start Mint payment for order {0}, currency {1}. "
-                            + "Check that Mint is running, the currency exists, and "
-                            + "purchase.mint-shop-account is valid. Reason: {2}",
-                    order.orderId(), currency.serialized(), exception.toString());
-            LOGGER.log(System.Logger.Level.DEBUG,
-                    "Mint payment start failure", exception);
-            return uncertain(order, "mint_exception");
-        }
-
-        return paymentStage.handle(MintOutcome::new)
-                .thenCompose(outcome -> {
-                    if (outcome.failure() != null) {
-                        LOGGER.log(System.Logger.Level.WARNING,
-                                "Mint payment result was unavailable for Crown order {0}, "
-                                        + "currency {1}: {2}",
-                                order.orderId(), currency.serialized(),
-                                outcome.failure().toString());
-                        return uncertain(
-                                order, "mint_unknown_result");
-                    }
-                    MintPaymentResult payment =
-                            outcome.result();
-                    if (payment.successful()) {
-                        return commitMintPayment(
-                                order, recovery);
-                    }
-                    return failMintPayment(order, payment);
-                });
-    }
-
-    private CompletionStage<PurchaseResult> commitMintPayment(
-            PurchaseOrderRecord order,
-            boolean recovery
-    ) {
-        CompletionStage<PurchaseResult> stage =
-                storage.submit(() -> repository.transitionOrder(
-                                order.orderId(),
-                                PurchaseOrderState.PAYMENT_PENDING,
-                                PurchaseOrderState.PAYMENT_COMMITTED,
-                                null,
-                                clock.instant()))
-                        .thenCompose(ignored ->
-                                reloadAndContinue(
-                                        order.orderId(),
-                                        recovery));
-        return recoverUncertain(
-                stage, order, "mint_commit_unknown");
-    }
-
-    private CompletionStage<PurchaseResult> failMintPayment(
-            PurchaseOrderRecord order,
-            MintPaymentResult payment
-    ) {
-        String failureCode =
-                normalizeMintFailure(payment.failureCode());
-        CompletionStage<PurchaseResult> stage =
-                storage.submit(() -> repository.transitionOrder(
-                                order.orderId(),
-                                PurchaseOrderState.PAYMENT_PENDING,
-                                PurchaseOrderState.FAILED,
-                                failureCode,
-                                clock.instant()))
-                        .thenCompose(changed -> changed
-                                ? completed(PurchaseResult.of(
-                                PurchaseStatus.PAYMENT_FAILED,
-                                order.orderId(),
-                                failureCode))
-                                : reloadAndContinue(
-                                order.orderId(), false));
-        return recoverUncertain(
-                stage, order, "mint_failure_not_persisted");
     }
 
     private CompletionStage<PurchaseResult> grant(
@@ -653,15 +430,10 @@ public final class UnifiedPurchaseService {
     ) {
         boolean safeToFail =
                 order.state() == PurchaseOrderState.PREPARED
-                        || (order.state()
-                        == PurchaseOrderState.PAYMENT_PENDING
-                        && order.paymentType()
-                        != PaymentType.MINT);
+                        || order.state() == PurchaseOrderState.PAYMENT_PENDING;
         if (!safeToFail) {
             return completed(PurchaseResult.of(
-                    order.paymentType() == PaymentType.MINT
-                            ? PurchaseStatus.PAYMENT_UNCERTAIN
-                            : PurchaseStatus.INVALID_STATE,
+                    PurchaseStatus.INVALID_STATE,
                     order.orderId(),
                     "invalid_order_snapshot"));
         }
@@ -696,23 +468,6 @@ public final class UnifiedPurchaseService {
         return stage;
     }
 
-    private CoreSettings.Purchase purchaseSettings(
-            PurchaseOrderRecord order
-    ) {
-        throw new UnsupportedOperationException(
-                "Purchase settings are not persisted separately");
-    }
-
-    private java.time.Duration orderTimeout(
-            PurchaseOrderRecord order
-    ) {
-        /*
-         * timeout 不是转账请求幂等身份的一部分。恢复时使用当前安全超时，
-         * 商城账户、货币、金额、reason 与 transaction UUID 均来自订单。
-         */
-        return java.time.Duration.ofSeconds(30);
-    }
-
     private static PurchaseStatus catalogRejection(
             TitleDefinition definition,
             boolean hasRequiredPermission,
@@ -742,24 +497,6 @@ public final class UnifiedPurchaseService {
                 : TITLE_REASON;
     }
 
-    private static Map<String, String> metadata(
-            PurchaseOrderRecord order,
-            TitleOrderSnapshot snapshot
-    ) {
-        Map<String, String> metadata = new HashMap<>();
-        metadata.put("crown_order_id",
-                order.orderId().toString());
-        metadata.put("crown_entry_id",
-                snapshot.entryId().toString());
-        metadata.put("crown_product_type",
-                order.productType().name());
-        if (order.definitionId() != null) {
-            metadata.put("crown_definition_id",
-                    order.definitionId().value());
-        }
-        return Map.copyOf(metadata);
-    }
-
     private static AuditRecord purchaseAudit(
             PurchaseOrderRecord order,
             OwnedTitleRecord title,
@@ -776,11 +513,7 @@ public final class UnifiedPurchaseService {
         details.addProperty(
                 "entryId", title.entryId().toString());
         details.addProperty("recovery", recovery);
-        if (order.currencyId() != null) {
-            details.addProperty(
-                    "currencyId",
-                    order.currencyId().serialized());
-        }
+
         if (order.definitionId() != null) {
             details.addProperty(
                     "definitionId",
@@ -812,44 +545,6 @@ public final class UnifiedPurchaseService {
                         : PurchaseStatus.PAYMENT_FAILED;
         return PurchaseResult.of(
                 status, order.orderId(), code);
-    }
-
-    private static String normalizeMintFailure(String value) {
-        String normalized = value.toLowerCase(
-                        java.util.Locale.ROOT)
-                .replaceAll("[^a-z0-9_.-]", "_");
-        if (normalized.isBlank()) {
-            normalized = "unknown";
-        }
-        String result = "mint_" + normalized;
-        return result.length() <= 128
-                ? result
-                : result.substring(0, 128);
-    }
-
-    private static CompletionStage<PurchaseResult> uncertain(
-            PurchaseOrderRecord order,
-            String code
-    ) {
-        return completed(PurchaseResult.of(
-                PurchaseStatus.PAYMENT_UNCERTAIN,
-                order.orderId(),
-                code));
-    }
-
-    private static CompletionStage<PurchaseResult>
-    recoverUncertain(
-            CompletionStage<PurchaseResult> stage,
-            PurchaseOrderRecord order,
-            String code
-    ) {
-        return stage.handle((result, failure) ->
-                failure == null
-                        ? result
-                        : PurchaseResult.of(
-                        PurchaseStatus.PAYMENT_UNCERTAIN,
-                        order.orderId(),
-                        code));
     }
 
     private static CompletionStage<PurchaseResult> completed(
@@ -896,20 +591,4 @@ public final class UnifiedPurchaseService {
         }
     }
 
-    private record MintOutcome(
-            MintPaymentResult result,
-            Throwable failure
-    ) {
-        private MintOutcome(
-                MintPaymentResult result,
-                Throwable failure
-        ) {
-            this.result = result;
-            this.failure = failure;
-            if ((result == null) == (failure == null)) {
-                throw new IllegalArgumentException(
-                        "Mint outcome must have one result");
-            }
-        }
-    }
 }

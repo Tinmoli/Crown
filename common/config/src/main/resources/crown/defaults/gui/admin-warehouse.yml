@@ -1,5 +1,5 @@
 # Crown 管理员玩家仓库查看 GUI
-config-version: 3
+config-version: 4
 
 screen:
   type: "GENERIC_9X6"

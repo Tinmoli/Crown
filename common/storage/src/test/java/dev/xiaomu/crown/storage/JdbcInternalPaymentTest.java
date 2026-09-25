@@ -1,7 +1,6 @@
 package dev.xiaomu.crown.storage;
 
 import dev.xiaomu.crown.domain.catalog.DefinitionId;
-import dev.xiaomu.crown.domain.catalog.NamespacedId;
 import dev.xiaomu.crown.domain.catalog.PaymentType;
 import dev.xiaomu.crown.domain.order.PurchaseOrderState;
 import dev.xiaomu.crown.domain.player.TitleSelection;
@@ -216,10 +215,9 @@ final class JdbcInternalPaymentTest {
     }
 
     @Test
-    void commitsFreeOrderAndRejectsInvalidOrMintStates() {
+    void commitsFreeOrderAndRejectsInvalidStates() {
         UUID playerId = UUID.randomUUID();
         UUID freeOrderId = UUID.randomUUID();
-        UUID mintOrderId = UUID.randomUUID();
 
         try (JdbcCrownRepository repository =
                      repository("payment-types.db")) {
@@ -274,31 +272,6 @@ final class JdbcInternalPaymentTest {
             assertTrue(repository.titleCoinLedger(
                     playerId, 10).isEmpty());
 
-            PurchaseOrderRecord mintOrder = mintOrder(
-                    mintOrderId,
-                    playerId,
-                    BASE_TIME.plusSeconds(5));
-            assertEquals(
-                    OrderPreparationStatus.CREATED,
-                    repository.prepareOrder(mintOrder, -1, -1));
-            assertTrue(repository.transitionOrder(
-                    mintOrderId,
-                    PurchaseOrderState.PREPARED,
-                    PurchaseOrderState.PAYMENT_PENDING,
-                    null,
-                    BASE_TIME.plusSeconds(6)));
-
-            assertThrows(IllegalArgumentException.class,
-                    () -> repository.commitInternalPayment(
-                            mintOrderId,
-                            "player:" + playerId,
-                            "title_purchase",
-                            BASE_TIME.plusSeconds(7)));
-            assertEquals(
-                    PurchaseOrderState.PAYMENT_PENDING,
-                    repository.findOrder(mintOrderId)
-                            .orElseThrow()
-                            .state());
         }
     }
 
@@ -404,41 +377,16 @@ final class JdbcInternalPaymentTest {
     ) {
         return new PurchaseOrderRecord(
                 orderId,
-                null,
                 playerId,
                 ProductType.CATALOG,
                 VIP,
                 paymentType,
-                null,
                 amountMinor,
                 "{\"text\":\"VIP\"}",
                 PurchaseOrderState.PREPARED,
                 null,
                 null,
                 inventoryReserved,
-                now,
-                now);
-    }
-
-    private static PurchaseOrderRecord mintOrder(
-            UUID orderId,
-            UUID playerId,
-            Instant now
-    ) {
-        return new PurchaseOrderRecord(
-                orderId,
-                UUID.randomUUID(),
-                playerId,
-                ProductType.CATALOG,
-                VIP,
-                PaymentType.MINT,
-                NamespacedId.parse("mint:coin"),
-                100,
-                "{\"text\":\"VIP\"}",
-                PurchaseOrderState.PREPARED,
-                null,
-                null,
-                false,
                 now,
                 now);
     }
