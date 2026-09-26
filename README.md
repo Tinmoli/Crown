@@ -257,6 +257,8 @@ The GUI uses its configured lore text. Set the delete-confirmation lore to inclu
 ## Documentation
 
 - Chinese guide: [README_zh.md](README_zh.md)
+- Changelog: [CHANGELOG.md](CHANGELOG.md)
+- Chinese changelog: [CHANGELOG_zh.md](CHANGELOG_zh.md)
 
 ## License
 

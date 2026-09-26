@@ -226,6 +226,8 @@ GUI 使用配置文件中的 lore 文本。删除确认页面的 lore 需要包�
 ## 文档
 
 - English documentation: [README.md](README.md)
+- English changelog: [CHANGELOG.md](CHANGELOG.md)
+- 中文更新日志: [CHANGELOG_zh.md](CHANGELOG_zh.md)
 
 ## 许可证
 
