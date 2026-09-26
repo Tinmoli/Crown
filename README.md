@@ -228,6 +228,32 @@ LuckPerms explicit denials are not bypassed by OP. Without LuckPerms, ordinary c
 
 Native Minecraft text assigns one color to each character, so gradients and rainbows are static character-based colors rather than animated multi-color glyphs.
 
+## Frequently asked questions
+
+### Where do I equip a purchased title?
+
+Open the warehouse with `/crown warehouse` or from the main GUI, then left-click the title entry. Buying a title does not automatically replace the currently equipped title.
+
+### Why did an owned title keep its old text after I edited the product?
+
+Warehouse entries keep the text, prefix, suffix, price basis, and expiry snapshot from the time of purchase. Product edits, disabling, or deleting a product affect future purchases only.
+
+### Why does every warehouse entry have a UUID?
+
+Each entry has its own UUID so repeated purchases of the same product can be managed separately. The warehouse also shows the entry source, acquisition time, and expiry time.
+
+### Why can I not see my title?
+
+The default display mode exposes placeholders to external mods. Configure the receiving mod with `%crown:title%` or `%crown:title_legacy%`, or set the relevant `display.channels` value to `vanilla`. Another nametag or TAB mod may take ownership of the same display location.
+
+### Why do I not have administrator commands even though I am OP?
+
+When LuckPerms is installed, its effective permissions are authoritative. Grant the required `crown.admin.*` or individual administrator nodes, then reconnect or run `/crown help` to refresh command suggestions. Without LuckPerms, administrator commands require OP level 3.
+
+### Why does the GUI not show a refund message?
+
+The GUI uses its configured lore text. Set the delete-confirmation lore to include `{refund}` and `{title_coin_unit}`, and use `{owned_count}/{owned_limit}` for the warehouse count. GUI files can be backed up and restored before running `/crown reload`; the player database does not need to be deleted.
+
 ## Documentation
 
 - Chinese guide: [README_zh.md](README_zh.md)

@@ -116,6 +116,41 @@ deletion:
 
 配置说明 · 称号显示与颜色 · 权限与 LuckPerms
 
+## 配置解析与显示变量
+
+### 配置解析规则
+
+所有配置文件使用 UTF-8 编码，YAML 缩进必须使用空格。Crown 会自动创建缺失的文件，并为缺失字段补充默认值。配置格式错误时不会替换上一次成功加载的配置。修改商品、语言或 GUI 设置后执行 `/crown reload`；修改数据库连接设置后必须重启服务器。
+
+### 核心配置
+
+| 配置区段 | 常用字段 | 作用 |
+|---|---|---|
+| `language` | `zh_cn`、`en_us` | 非 GUI 消息语言 |
+| `title-coin` | `name`、`symbol`、`maximum-balance` | 称号币显示与余额上限 |
+| `custom-title` | `enabled`、`price`、`duration` | 自定义称号购买设置 |
+| `custom-title` | `minimum-length`、`maximum-length` | 可见文字长度限制 |
+| `custom-title` | `allow-rgb`、`allow-gradient`、`allow-formatting` | 颜色和格式开关 |
+| `custom-title` | `forbidden-words` | 非 OP 玩家禁用词 |
+| `purchase` | `maximum-owned-titles-per-player` | 仓库容量，`-1` 表示不限 |
+| `deletion` | `refund-enabled`、`refund-percent`、`refund-expired` | 删除称号退款设置 |
+### 变量参考
+
+| 变量 | 内容 |
+|---|---|
+| `%crown:title%` | 包含前后缀的完整原生称号组件 |
+| `%crown:title_text%` | 带样式的称号正文 |
+| `%crown:title_prefix%` / `%crown:title_suffix%` | 称号前缀或后缀 |
+| `%crown:title_legacy%` | 转换为原版颜色代码的完整称号 |
+| `%crown:title_minimessage%` | MiniMessage 格式的完整称号 |
+| `%crown:title_plain%` | 不带颜色和格式的称号 |
+| `%crown:title_id%` | 条目 UUID、`default` 或空值 |
+| `%crown:title_definition%` | 商品 ID |
+| `%crown:title_state%` | `default`、`owned` 或 `none` |
+| `%crown:title_expires%` | 剩余时间或永久 |
+| `%crown:title_coin%` / `%crown:title_coin_raw%` | 格式化或数字形式的称号币余额 |
+
+使用 `%crown:title%` 的前提是接收模组支持原生文本组件；如果接收模组只接受字符串，请使用 `%crown:title_legacy%`。
 ## 常见问题
 
 **购买后在哪里佩戴？** 打开仓库，左键点击称号。购买不会自动替换当前佩戴。
