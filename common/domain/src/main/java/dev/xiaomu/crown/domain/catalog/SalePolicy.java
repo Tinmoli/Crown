@@ -45,7 +45,4 @@ public record SalePolicy(
         return globalStock >= 0;
     }
 
-    public boolean limitedPerPlayer() {
-        return perPlayerLimit >= 0;
-    }
 }

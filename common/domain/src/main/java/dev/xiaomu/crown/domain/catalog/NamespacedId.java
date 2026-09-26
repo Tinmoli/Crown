@@ -39,13 +39,6 @@ public record NamespacedId(String namespace, String path)
                 serialized.substring(separator + 1));
     }
 
-    public NamespacedId requireSimplePath() {
-        if (!SIMPLE_PATH.matcher(path).matches()) {
-            throw new IllegalArgumentException(
-                    "ID requires a simple path: " + serialized());
-        }
-        return this;
-    }
 
     public String serialized() {
         return namespace + ':' + path;

@@ -38,6 +38,7 @@ public final class AdminTitleSaleEditSessions {
         if (AdminTitleDraftSessions.hasSession(playerId)
                 || AdminTitleTextEditSessions.hasSession(playerId)
                 || AdminTitlePaymentEditSessions.hasSession(playerId)
+                || PlayerCustomTitleSessions.hasSession(playerId)
                 || SESSIONS.containsKey(playerId)) {
             return false;
         }

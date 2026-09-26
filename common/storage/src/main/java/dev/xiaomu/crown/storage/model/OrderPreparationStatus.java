@@ -5,5 +5,6 @@ public enum OrderPreparationStatus {
     CREATED,
     ORDER_ALREADY_EXISTS,
     OUT_OF_STOCK,
+    WAREHOUSE_FULL,
     PLAYER_LIMIT_REACHED
 }

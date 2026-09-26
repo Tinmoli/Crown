@@ -16,7 +16,7 @@ import dev.xiaomu.crown.storage.model.OwnedTitleRecord;
 import dev.xiaomu.crown.storage.model.OwnedTitleStatus;
 import eu.pb4.sgui.api.ClickType;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
-import eu.pb4.sgui.api.gui.SimpleGui;
+
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.MenuType;
 
@@ -30,12 +30,12 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Crown 称号商城 GUI（DESIGN.md §16）。
+ * Crown 称号商城 GUI。
  *
  * <p>渲染前先在存储线程读取玩家已拥有的称号集合，再切回主线程打开界面，
  * 据此展示 available/owned/unavailable 三态。翻页仅重排内容槽，不重新查库。</p>
  */
-public final class CrownShopGui extends SimpleGui {
+public final class CrownShopGui extends CrownGui {
     private final CrownServerContext context;
     private final List<TitleDefinition> catalog;
     private final Set<String> ownedDefinitionIds;
@@ -50,7 +50,7 @@ public final class CrownShopGui extends SimpleGui {
             Set<String> ownedDefinitionIds,
             int[] contentSlots
     ) {
-        super(type, player, false);
+        super(context, type, player);
         this.context = context;
         this.catalog = catalog;
         this.ownedDefinitionIds = ownedDefinitionIds;

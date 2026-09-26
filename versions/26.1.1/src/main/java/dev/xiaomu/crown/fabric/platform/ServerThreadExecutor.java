@@ -10,7 +10,7 @@ import java.util.function.Consumer;
  * 把异步存储/支付回调安全地调度回 Minecraft 服务器主线程。
  *
  * <p>存储操作都在工作线程完成；一旦需要访问玩家、GUI 或发送消息，
- * 必须通过本类切回主线程，符合 DESIGN.md §2.5 不阻塞主线程且回调切回的要求。</p>
+ * 必须通过本类切回主线程，确保不阻塞主线程。</p>
  */
 public final class ServerThreadExecutor {
     private final MinecraftServer server;

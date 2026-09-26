@@ -16,7 +16,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * 向 Text Placeholder API 注册 Crown 称号变量（DESIGN.md §19）。
+ * 向 Text Placeholder API 注册 Crown 称号变量。
  *
  * <p>使用 {@code registerServer} + {@link ServerPlaceholderContext}，在
  * 3.0.0+ 与 3.1.0+ 上签名一致。只读内存缓存，绝不等待数据库；未安装 API
@@ -42,6 +42,10 @@ public final class CrownPlaceholders {
 
         registerString(context, "title_plain",
                 (player, title) -> title.plainText());
+        registerString(context, "title_legacy", (player, title) ->
+                dev.xiaomu.crown.domain.text.TitleTextOutput.legacy(title.fullText()));
+        registerString(context, "title_minimessage", (player, title) ->
+                dev.xiaomu.crown.domain.text.TitleTextOutput.miniMessage(title.fullText()));
         registerString(context, "title_id", (player, title) ->
                 switch (title.state()) {
                     case DEFAULT -> "default";

@@ -53,7 +53,8 @@ public final class CoreSettingsParser {
         CoreSettings.Purchase purchase = ConfigParsing.wrap(
                 "purchase", () -> new CoreSettings.Purchase(
                         YamlValues.integer(root,
-                                "purchase.maximum-pending-orders-per-player")));
+                                "purchase.maximum-pending-orders-per-player"),
+                        YamlValues.integer(root, "purchase.maximum-owned-titles-per-player")));
 
         return ConfigParsing.wrap("config.yml", () -> new CoreSettings(
                 YamlValues.nonBlankString(root, "language"),
@@ -63,9 +64,11 @@ public final class CoreSettingsParser {
                 display,
                 permissions,
                 purchase,
-                safety,
-                new CoreSettings.Commands(YamlValues.bool(
-                        root, "commands.enable-title-alias"))));
+                ConfigParsing.wrap("deletion", () -> new CoreSettings.Deletion(
+                        YamlValues.bool(root, "deletion.refund-enabled"),
+                        YamlValues.integer(root, "deletion.refund-percent"),
+                        YamlValues.bool(root, "deletion.refund-expired"))),
+                safety));
     }
 
     private static CoreSettings.DefaultTitle parseDefaultTitle(

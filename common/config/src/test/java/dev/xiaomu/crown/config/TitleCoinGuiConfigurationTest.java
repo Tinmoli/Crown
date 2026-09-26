@@ -14,6 +14,17 @@ import static org.junit.jupiter.api.Assertions.*;
 final class TitleCoinGuiConfigurationTest {
     @TempDir Path root;
 
+    @Test void warehouseShowsIdentityAndDatesInEveryState() throws Exception {
+        var warehouse = new CrownConfigurationBootstrap().initialize(root)
+                .snapshot().gui().require("warehouse");
+        for (String state : Set.of("active", "equipped", "expired")) {
+            String lore = String.join("\n", warehouse.itemVariants().get(state).lore());
+            for (String variable : Set.of("entry_id", "source", "acquired_at", "expires")) {
+                assertTrue(lore.contains("{" + variable + "}"), state + ": " + variable);
+            }
+        }
+    }
+
     @Test void eachPurchaseScreenHasOneConfirmationAndAnAlignedProcessingSlot() throws Exception {
         var snapshot = new CrownConfigurationBootstrap().initialize(root).snapshot();
         for (String screen : Set.of("purchase-confirm", "custom-confirm")) {
@@ -64,5 +75,21 @@ final class TitleCoinGuiConfigurationTest {
             Files.writeString(config, original.replace("price: 50", "price: " + price));
             assertThrows(IllegalArgumentException.class, () -> bootstrap.initialize(root), price);
         }
+    }
+
+    @Test void unknownActionsAndEmptyListSlotsAreRejected() throws Exception {
+        var snapshot = new CrownConfigurationBootstrap().initialize(root).snapshot();
+        var main = snapshot.gui().require("main");
+        var unknown = new dev.xiaomu.crown.config.model.GuiButton(
+                "shpo", 11, main.buttons().get("shop").item());
+        assertThrows(IllegalArgumentException.class, () ->
+                new dev.xiaomu.crown.config.model.GuiLayout(main.id(), main.screenType(),
+                        main.title(), main.contentSlots(), main.fillerEnabled(), main.filler(),
+                        java.util.Map.of("shpo", unknown), main.itemVariants(), main.textValues()));
+        var shop = snapshot.gui().require("shop");
+        assertThrows(IllegalArgumentException.class, () ->
+                new dev.xiaomu.crown.config.model.GuiLayout(shop.id(), shop.screenType(),
+                        shop.title(), java.util.List.of(), shop.fillerEnabled(), shop.filler(),
+                        shop.buttons(), shop.itemVariants(), shop.textValues()));
     }
 }

@@ -14,7 +14,7 @@ import dev.xiaomu.crown.storage.model.OwnedTitleRecord;
 import dev.xiaomu.crown.storage.model.PlayerRecord;
 import eu.pb4.sgui.api.ClickType;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
-import eu.pb4.sgui.api.gui.SimpleGui;
+
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.MenuType;
 
@@ -26,13 +26,13 @@ import java.util.UUID;
 import java.util.function.Supplier;
 
 /**
- * Crown 玩家称号仓库 GUI（DESIGN.md §11、§16）。
+ * Crown 玩家称号仓库 GUI。
  *
  * <p>打开前在存储线程读取仓库条目与当前佩戴选择，再切回主线程渲染。
  * 左键佩戴、右键删除；过期条目仅提示不可佩戴。所有写操作都回存储线程
  * 执行并刷新称号缓存后重新打开界面。</p>
  */
-public final class CrownWarehouseGui extends SimpleGui {
+public final class CrownWarehouseGui extends CrownGui {
     private final CrownServerContext context;
     private final List<OwnedTitleRecord> owned;
     private final UUID equippedEntryId;
@@ -47,7 +47,7 @@ public final class CrownWarehouseGui extends SimpleGui {
             UUID equippedEntryId,
             int[] contentSlots
     ) {
-        super(type, player, false);
+        super(context, type, player);
         this.context = context;
         this.owned = owned;
         this.equippedEntryId = equippedEntryId;
@@ -61,6 +61,12 @@ public final class CrownWarehouseGui extends SimpleGui {
     ) {
         Objects.requireNonNull(context, "context");
         Objects.requireNonNull(player, "player");
+        if (!context.permissions().checkSource(
+                dev.xiaomu.crown.runtime.platform.PermissionSource.of(player.createCommandSourceStack()),
+                dev.xiaomu.crown.fabric.permission.CrownPermissions.COMMAND_OPEN, 0)) {
+            player.sendSystemMessage(context.messages().render("command.no-permission"));
+            return;
+        }
         UUID playerId = player.getUUID();
 
         context.mainThread().whenComplete(
@@ -120,6 +126,8 @@ public final class CrownWarehouseGui extends SimpleGui {
         }
 
         Map<String, String> pageVariables = Map.of(
+                "owned_count", Integer.toString(owned.size()),
+                "owned_limit", GuiFormatting.limitText(context.core().purchase().maximumOwnedTitlesPerPlayer(), layout.textValues()),
                 "page", Integer.toString(page + 1),
                 "pages", Integer.toString(pageCount()),
                 "default_title_preview",
@@ -162,7 +170,6 @@ public final class CrownWarehouseGui extends SimpleGui {
     ) {
         boolean expired = record.expiredAt(now);
         boolean equipped = record.entryId().equals(equippedEntryId);
-        var languages = context.runtime().snapshot().languages();
         String variantKey = expired
                 ? "expired"
                 : (equipped ? "equipped" : "active");
@@ -304,7 +311,10 @@ public final class CrownWarehouseGui extends SimpleGui {
         CrownMessages messages = context.messages();
         return switch (result) {
             case EQUIPPED, ALREADY_EQUIPPED ->
-                    messages.render("warehouse.equipped", "");
+                    messages.renderTitle("warehouse.equipped",
+                            context.runtime().playerTitleCache()
+                                    .get(getPlayer().getUUID())
+                                    .title().fullText());
             case EQUIPPED_DEFAULT ->
                     messages.render("warehouse.default");
             case UNEQUIPPED -> messages.render("warehouse.none");

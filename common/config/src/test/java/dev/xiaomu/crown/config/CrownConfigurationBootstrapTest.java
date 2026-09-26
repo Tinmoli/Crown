@@ -59,14 +59,14 @@ final class CrownConfigurationBootstrapTest {
         assertEquals(PaymentType.TITLE_COIN,
                 snapshot.catalog().find("event_winner")
                         .orElseThrow().payment().type());
-        assertEquals(8, snapshot.gui().layouts().size());
+        assertEquals(7, snapshot.gui().layouts().size());
         assertEquals("购买成功：%1%",
                 stripMessagePrefix(snapshot.languages()
                         .text("purchase.success")));
 
-        assertEquals(11, report.configurations().size());
+        assertEquals(10, report.configurations().size());
         assertEquals(2, report.languages().size());
-        assertEquals(11, report.changedConfigurationCount());
+        assertEquals(10, report.changedConfigurationCount());
         assertEquals(2, report.changedLanguageCount());
 
         assertTrue(Files.exists(

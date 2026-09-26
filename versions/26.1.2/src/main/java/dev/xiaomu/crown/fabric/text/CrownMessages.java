@@ -13,7 +13,7 @@ import java.util.Objects;
  * 语言渲染器：把语言键 + 位置参数解析为最终 Component。
  *
  * <p>模板本身允许颜色标签，但玩家名、称号正文等动态参数以字面量插入，
- * 不二次解析格式或变量，遵循 DESIGN.md §6.2 注入防护。</p>
+ * 不二次解析格式或变量。</p>
  */
 public final class CrownMessages {
     private static final TextParsePolicy TEMPLATE_POLICY =
@@ -46,6 +46,12 @@ public final class CrownMessages {
     public Component renderRaw(String template, String... args) {
         Objects.requireNonNull(template, "template");
         return renderTemplate(template, args);
+    }
+
+    /** Insert an already parsed title, preserving brackets, colors and literal text. */
+    public Component renderTitle(String key, StyledText title) {
+        return textAdapter.component(dev.xiaomu.crown.domain.text.TitleTextOutput.message(
+                languages.text(key), prefix, title));
     }
 
     private Component renderTemplate(String template, String[] args) {

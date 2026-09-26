@@ -14,11 +14,13 @@ import dev.xiaomu.crown.fabric.custom.AdminTitleTextEditSessions;
 import dev.xiaomu.crown.fabric.display.CrownNametagDisplay;
 import eu.pb4.sgui.api.ClickType;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
-import eu.pb4.sgui.api.gui.SimpleGui;
+
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.Items;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,7 +35,10 @@ import java.util.concurrent.CompletableFuture;
  * Crown 不具备的 BUFF、粒子或属性槽。修改操作仍统一经过
  * TitleCatalogEditor 的完整校验、原子替换、内部重载和数据库审计。</p>
  */
-public final class CrownAdminShopGui extends SimpleGui {
+public final class CrownAdminShopGui extends CrownGui {
+    private static final Logger LOGGER =
+            LoggerFactory.getLogger(CrownAdminShopGui.class);
+
     private final CrownServerContext context;
     private final List<TitleDefinition> catalog;
     private final int[] contentSlots;
@@ -46,7 +51,7 @@ public final class CrownAdminShopGui extends SimpleGui {
             List<TitleDefinition> catalog,
             int[] contentSlots
     ) {
-        super(type, player, false);
+        super(context, type, player);
         this.context = context;
         this.catalog = catalog;
         this.contentSlots = contentSlots;
@@ -171,6 +176,13 @@ public final class CrownAdminShopGui extends SimpleGui {
                 }
             }
             case "reload" -> {
+                if (!context.permissions().checkSource(
+                        dev.xiaomu.crown.runtime.platform.PermissionSource.of(
+                                getPlayer().createCommandSourceStack()),
+                        dev.xiaomu.crown.fabric.permission.CrownPermissions.ADMIN_RELOAD, 3)) {
+                    getPlayer().sendSystemMessage(context.messages().render("command.no-permission"));
+                    return;
+                }
                 CompletableFuture<?> reload = context.runtime().reloadAsync(
                         CompletableFuture.delayedExecutor(0,
                                 java.util.concurrent.TimeUnit.MILLISECONDS));
@@ -180,9 +192,9 @@ public final class CrownAdminShopGui extends SimpleGui {
                     getPlayer().sendSystemMessage(context.messages().render(
                             "command.reload.success"));
                 }, exception -> {
+                    LOGGER.warn("Crown reload failed", exception);
                     getPlayer().sendSystemMessage(context.messages().render(
-                            "command.reload.failed",
-                            safeMessage(exception)));
+                            "command.reload.failed"));
                 });
             }
             case "create" -> {
@@ -205,15 +217,7 @@ public final class CrownAdminShopGui extends SimpleGui {
                 / contentSlots.length;
     }
 
-    private static final class ReloadFailedException extends RuntimeException {
-        private static final long serialVersionUID = 1L;
-
-        private ReloadFailedException(java.io.IOException cause) {
-            super(cause);
-        }
-    }
-
-    private static final class DetailGui extends SimpleGui {
+    private static final class DetailGui extends CrownGui {
         private final CrownServerContext context;
         private final TitleDefinition definition;
         private final GuiLayout layout;
@@ -225,7 +229,7 @@ public final class CrownAdminShopGui extends SimpleGui {
                 TitleDefinition definition,
                 GuiLayout layout
         ) {
-            super(MenuType.GENERIC_9x6, player, false);
+            super(context, MenuType.GENERIC_9x6, player);
             this.context = context;
             this.definition = definition;
             this.layout = layout;
@@ -445,15 +449,6 @@ public final class CrownAdminShopGui extends SimpleGui {
         return new GuiItemTemplate(
                 id, name, lore, 1, false,
                 false, null, "", false);
-    }
-
-    private static String safeMessage(Throwable failure) {
-        Throwable current = failure;
-        while (current.getCause() != null) current = current.getCause();
-        String message = current.getMessage();
-        return message == null || message.isBlank()
-                ? current.getClass().getSimpleName()
-                : message.substring(0, Math.min(message.length(), 160));
     }
 
     @Override

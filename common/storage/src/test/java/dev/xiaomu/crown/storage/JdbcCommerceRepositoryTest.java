@@ -18,7 +18,6 @@ import dev.xiaomu.crown.storage.model.OwnedTitleStatus;
 import dev.xiaomu.crown.storage.model.ProductType;
 import dev.xiaomu.crown.storage.model.PurchaseOrderRecord;
 import dev.xiaomu.crown.storage.model.SaleCounterRecord;
-import dev.xiaomu.crown.storage.model.StorageSummary;
 import dev.xiaomu.crown.storage.repository.JdbcCrownRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -59,10 +58,10 @@ final class JdbcCommerceRepositoryTest {
                     firstOrderId, firstPlayer, true, BASE_TIME);
             assertEquals(
                     OrderPreparationStatus.CREATED,
-                    repository.prepareOrder(first, 1, -1));
+                    repository.prepareOrder(first, 1, -1, -1));
             assertEquals(
                     OrderPreparationStatus.ORDER_ALREADY_EXISTS,
-                    repository.prepareOrder(first, 1, -1));
+                    repository.prepareOrder(first, 1, -1, -1));
             assertEquals(
                     new SaleCounterRecord(VIP, 0, 1, 1),
                     repository.findSaleCounter(VIP).orElseThrow());
@@ -74,7 +73,7 @@ final class JdbcCommerceRepositoryTest {
                     BASE_TIME.plusSeconds(1));
             assertEquals(
                     OrderPreparationStatus.OUT_OF_STOCK,
-                    repository.prepareOrder(second, 1, -1));
+                    repository.prepareOrder(second, 1, -1, -1));
             assertTrue(repository.findOrder(secondOrderId).isEmpty());
 
             assertTrue(repository.transitionOrder(
@@ -97,7 +96,7 @@ final class JdbcCommerceRepositoryTest {
 
             assertEquals(
                     OrderPreparationStatus.CREATED,
-                    repository.prepareOrder(second, 1, -1));
+                    repository.prepareOrder(second, 1, -1, -1));
             transitionToCommitted(
                     repository, secondOrderId,
                     BASE_TIME.plusSeconds(3));
@@ -168,7 +167,7 @@ final class JdbcCommerceRepositoryTest {
                     BASE_TIME.plusSeconds(11));
             assertEquals(
                     OrderPreparationStatus.OUT_OF_STOCK,
-                    repository.prepareOrder(exhausted, 1, -1));
+                    repository.prepareOrder(exhausted, 1, -1, -1));
         }
     }
 
@@ -190,10 +189,10 @@ final class JdbcCommerceRepositoryTest {
 
             assertEquals(
                     OrderPreparationStatus.CREATED,
-                    repository.prepareOrder(first, -1, 1));
+                    repository.prepareOrder(first, -1, 1, -1));
             assertEquals(
                     OrderPreparationStatus.PLAYER_LIMIT_REACHED,
-                    repository.prepareOrder(second, -1, 1));
+                    repository.prepareOrder(second, -1, 1, -1));
             assertTrue(repository.findOrder(
                     second.orderId()).isEmpty());
 
@@ -205,7 +204,7 @@ final class JdbcCommerceRepositoryTest {
                     BASE_TIME.plusSeconds(2)));
             assertEquals(
                     OrderPreparationStatus.CREATED,
-                    repository.prepareOrder(second, -1, 1));
+                    repository.prepareOrder(second, -1, 1, -1));
             assertEquals(1,
                     repository.countPlayerPurchases(playerId, VIP));
 
@@ -314,7 +313,7 @@ final class JdbcCommerceRepositoryTest {
     }
 
     @Test
-    void appendsAuditAndReportsStorageSummary() {
+    void appendsAudit() {
         UUID playerId = UUID.randomUUID();
         String target = UUID.randomUUID().toString();
 
@@ -355,17 +354,6 @@ final class JdbcCommerceRepositoryTest {
                     List.of(second, first),
                     repository.findAuditByTarget(target, 10));
 
-            StorageSummary summary = repository.summarize();
-            assertEquals(1, summary.schemaVersion());
-            assertEquals(1, summary.playerCount());
-            assertEquals(0, summary.ownedTitleCount());
-            assertEquals(0, summary.purchaseOrderCount());
-            assertEquals(1, summary.titleCoinLedgerCount());
-            assertEquals(25, summary.titleCoinTotal());
-            assertEquals(0, summary.saleCounterCount());
-            assertEquals(0, summary.cardCount());
-            assertEquals(2, summary.auditCount());
-            assertTrue(summary.hasBusinessData());
         }
     }
 

@@ -43,7 +43,6 @@ public final class AdminTitlePaymentEditSessions {
         }
         UUID playerId = player.getUUID();
         if (PlayerCustomTitleSessions.hasSession(playerId)
-                || CustomTitleInputSessions.hasSession(playerId)
                 || AdminTitleDraftSessions.hasSession(playerId)
                 || AdminTitleTextEditSessions.hasSession(playerId)
                 || AdminTitleSaleEditSessions.hasSession(playerId)) {

@@ -67,7 +67,7 @@ final class JdbcInternalPaymentTest {
                     BASE_TIME.plusSeconds(2));
             assertEquals(
                     OrderPreparationStatus.CREATED,
-                    repository.prepareOrder(order, -1, -1));
+                    repository.prepareOrder(order, -1, -1, -1));
             assertTrue(repository.transitionOrder(
                     orderId,
                     PurchaseOrderState.PREPARED,
@@ -160,7 +160,7 @@ final class JdbcInternalPaymentTest {
                     BASE_TIME.plusSeconds(2));
             assertEquals(
                     OrderPreparationStatus.CREATED,
-                    repository.prepareOrder(order, 1, -1));
+                    repository.prepareOrder(order, 1, -1, -1));
             assertEquals(
                     new SaleCounterRecord(VIP, 0, 1, 1),
                     repository.findSaleCounter(VIP).orElseThrow());
@@ -232,7 +232,7 @@ final class JdbcInternalPaymentTest {
                     BASE_TIME.plusSeconds(1));
             assertEquals(
                     OrderPreparationStatus.CREATED,
-                    repository.prepareOrder(freeOrder, -1, -1));
+                    repository.prepareOrder(freeOrder, -1, -1, -1));
 
             assertEquals(
                     InternalPaymentStatus.INVALID_STATE,
@@ -302,7 +302,7 @@ final class JdbcInternalPaymentTest {
                     BASE_TIME.plusSeconds(2));
             assertEquals(
                     OrderPreparationStatus.CREATED,
-                    repository.prepareOrder(order, -1, -1));
+                    repository.prepareOrder(order, -1, -1, -1));
             assertTrue(repository.transitionOrder(
                     orderId,
                     PurchaseOrderState.PREPARED,

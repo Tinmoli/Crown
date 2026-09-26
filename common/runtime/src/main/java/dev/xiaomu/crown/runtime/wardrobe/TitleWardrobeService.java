@@ -13,7 +13,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * 称号仓库与佩戴业务（DESIGN.md §11）。
+ * 称号仓库与佩戴业务。
  *
  * <p>所有方法都在存储执行器线程内同步执行，绝不触碰 Minecraft 主线程。
  * 佩戴前校验条目归属、状态与过期；佩戴当前条目返回 ALREADY_EQUIPPED。</p>

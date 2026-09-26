@@ -67,62 +67,6 @@ final class AsyncStorageExecutorTest {
     }
 
     @Test
-    void maintenanceWaitsForAcceptedWorkAndRejectsNewWork()
-            throws Exception {
-        CountDownLatch started = new CountDownLatch(1);
-        CountDownLatch release = new CountDownLatch(1);
-        AtomicInteger order = new AtomicInteger();
-
-        try (AsyncStorageExecutor executor =
-                     AsyncStorageExecutor.mysql(
-                             2, 16, Duration.ofSeconds(5))) {
-            var existing = executor.run(() -> {
-                started.countDown();
-                await(release);
-                assertEquals(0, order.getAndIncrement());
-            });
-            assertTrue(started.await(5, TimeUnit.SECONDS));
-
-            var maintenance = executor.submitMaintenance(() -> {
-                assertEquals(1, order.getAndIncrement());
-                return "done";
-            });
-            assertTrue(executor.maintenance());
-
-            CompletionException rejected = assertThrows(
-                    CompletionException.class,
-                    () -> executor.submit(() -> "late").join());
-            assertTrue(rejected.getCause()
-                    instanceof StorageException);
-
-            release.countDown();
-            existing.join();
-            assertEquals("done", maintenance.join());
-            assertEquals(2, order.get());
-            assertTrue(!executor.maintenance());
-            assertEquals("resumed",
-                    executor.submit(() -> "resumed").join());
-        }
-    }
-
-    @Test
-    void maintenanceFailureRestoresNormalSubmission() {
-        try (AsyncStorageExecutor executor =
-                     AsyncStorageExecutor.sqlite(
-                             8, Duration.ofSeconds(5))) {
-            CompletionException failure = assertThrows(
-                    CompletionException.class,
-                    () -> executor.submitMaintenance(() -> {
-                        throw new IllegalStateException("migration failed");
-                    }).join());
-            assertTrue(failure.getCause()
-                    instanceof IllegalStateException);
-            assertTrue(!executor.maintenance());
-            assertEquals(7, executor.submit(() -> 7).join());
-        }
-    }
-
-    @Test
     void failsClosedWhenBoundedQueueIsFull()
             throws Exception {
         CountDownLatch started = new CountDownLatch(1);

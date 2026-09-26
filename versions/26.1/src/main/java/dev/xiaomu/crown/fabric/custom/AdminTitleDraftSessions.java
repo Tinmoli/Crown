@@ -8,6 +8,8 @@ import dev.xiaomu.crown.fabric.permission.CrownPermissions;
 import dev.xiaomu.crown.runtime.platform.PermissionSource;
 import dev.xiaomu.crown.storage.model.AuditRecord;
 import net.minecraft.server.level.ServerPlayer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
 import java.time.Instant;
@@ -22,6 +24,8 @@ public final class AdminTitleDraftSessions {
     private static final TitleCatalogEditor EDITOR = new TitleCatalogEditor();
     private static final ConcurrentHashMap<UUID, Instant> SESSIONS =
             new ConcurrentHashMap<>();
+    private static final Logger LOGGER =
+            LoggerFactory.getLogger(AdminTitleDraftSessions.class);
 
     private AdminTitleDraftSessions() {
     }
@@ -46,7 +50,6 @@ public final class AdminTitleDraftSessions {
         }
         UUID playerId = player.getUUID();
         if (PlayerCustomTitleSessions.hasSession(playerId)
-                || CustomTitleInputSessions.hasSession(playerId)
                 || AdminTitleTextEditSessions.hasSession(playerId)
                 || AdminTitlePaymentEditSessions.hasSession(playerId)
                 || AdminTitleSaleEditSessions.hasSession(playerId)) {
@@ -152,24 +155,20 @@ public final class AdminTitleDraftSessions {
                             "admin.title.changed", id, "create"));
                     CrownAdminShopGui.openDetail(context, player, id);
                 },
-                failure -> player.sendSystemMessage(context.messages().render(
-                        "admin.title.failed", id, safeMessage(failure))));
+                failure -> {
+                    LOGGER.warn("Failed to create title draft {}",
+                            id, failure);
+                    player.sendSystemMessage(context.messages().render(
+                            "admin.title.failed", id,
+                            reason(context, "error.internal")));
+                });
     }
 
-    private static String safeMessage(Throwable failure) {
-        Throwable current = failure;
-        while (current.getCause() != null) {
-            current = current.getCause();
-        }
-        String message = current.getMessage();
-        if (message == null || message.isBlank()) {
-            return current.getClass().getSimpleName();
-        }
-        StringBuilder result = new StringBuilder(
-                Math.min(message.length(), 160));
-        message.codePoints().filter(codePoint ->
-                !Character.isISOControl(codePoint)).limit(160)
-                .forEach(result::appendCodePoint);
-        return result.toString();
+    /** 把语言键解析为当前语言文案；未知键回退为键名本身。 */
+    private static String reason(
+            CrownServerContext context,
+            String key
+    ) {
+        return context.runtime().snapshot().languages().text(key);
     }
 }

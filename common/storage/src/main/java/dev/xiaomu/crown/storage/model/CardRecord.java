@@ -56,9 +56,6 @@ public record CardRecord(
         return Optional.ofNullable(redeemedBy);
     }
 
-    public Optional<Instant> redemptionTime() {
-        return Optional.ofNullable(redeemedAt);
-    }
 
     public CardRecord redeemedBy(UUID playerId, Instant instant) {
         Objects.requireNonNull(playerId, "playerId");

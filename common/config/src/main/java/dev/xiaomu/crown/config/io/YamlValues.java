@@ -133,12 +133,6 @@ public final class YamlValues {
         return List.copyOf(result);
     }
 
-    public static Map<String, Object> nestedRoot(
-            Map<String, Object> root,
-            String path
-    ) {
-        return new LinkedHashMap<>(map(root, path));
-    }
 
     private static Object find(
             Map<String, Object> root,

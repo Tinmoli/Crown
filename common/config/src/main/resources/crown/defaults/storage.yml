@@ -1,5 +1,5 @@
 # Crown 数据库存储配置
-# 首次安装建议保持 sqlite；切换后端前必须执行显式迁移命令。
+# 首次安装建议保持 sqlite。修改数据库连接后需要重启；不会自动搬移数据。
 config-version: 1
 
 # 存储类型：sqlite 或 mysql。
@@ -14,10 +14,6 @@ sqlite:
   wal: true
   # OFF、NORMAL、FULL 或 EXTRA。
   synchronous: "NORMAL"
-  # Schema 或后端迁移前是否创建快照。
-  snapshot-before-migration: true
-  # 最多保留的自动 SQLite 快照数。
-  maximum-snapshots: 10
 
 mysql:
   host: "127.0.0.1"
@@ -41,18 +37,3 @@ mysql:
     validation-timeout-millis: 3000
     idle-timeout-millis: 600000
     maximum-lifetime-millis: 1800000
-  # 破坏性 MySQL Schema 变更前要求管理员确认已完成外部备份。
-  require-manual-backup-for-destructive-migration: true
-
-migration:
-  # 是否在兼容升级时自动迁移当前后端 Schema。
-  auto-compatible-schema: true
-  # 旧后端有数据而目标为空时拒绝直接切换。
-  protect-empty-target: true
-  verify:
-    player-count: true
-    owned-title-count: true
-    title-coin-total: true
-    order-count: true
-    card-count: true
-    audit-count: true

@@ -45,17 +45,11 @@ public record GuiItemTemplate(
         }
     }
 
-    public boolean dynamicItem() {
-        return ITEM_VARIABLE.matcher(item).matches();
-    }
 
     public Optional<Integer> customModelDataValue() {
         return Optional.ofNullable(customModelData);
     }
 
-    public Optional<String> soundId() {
-        return sound.isEmpty() ? Optional.empty() : Optional.of(sound);
-    }
 
     private static String requireItem(String value) {
         Objects.requireNonNull(value, "item");

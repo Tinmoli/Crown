@@ -2,18 +2,18 @@ package dev.xiaomu.crown.fabric.gui;
 
 import dev.xiaomu.crown.fabric.CrownServerContext;
 import dev.xiaomu.crown.fabric.command.CrownTitleAdminCommands;
-import eu.pb4.sgui.api.gui.SimpleGui;
+
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.MenuType;
 
 /** 管理员商品删除二次确认；只删除配置商品，不删除玩家历史仓库条目。 */
-public final class CrownAdminTitleDeleteConfirmGui extends SimpleGui {
+public final class CrownAdminTitleDeleteConfirmGui extends CrownGui {
     private final CrownServerContext context;
     private final String definitionId;
 
     private CrownAdminTitleDeleteConfirmGui(
             CrownServerContext context, ServerPlayer player, String definitionId) {
-        super(MenuType.GENERIC_9x3, player, false);
+        super(context, MenuType.GENERIC_9x3, player);
         this.context = context;
         this.definitionId = definitionId;
     }

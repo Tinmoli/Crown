@@ -14,13 +14,15 @@ import dev.xiaomu.crown.storage.jdbc.JdbcDialect;
 import dev.xiaomu.crown.storage.jdbc.JdbcSchema;
 import dev.xiaomu.crown.storage.jdbc.TableNames;
 import dev.xiaomu.crown.storage.model.AuditRecord;
+import dev.xiaomu.crown.storage.model.TitleDeletionResult;
+import dev.xiaomu.crown.config.model.CoreSettings;
 import dev.xiaomu.crown.storage.model.CardRecord;
 import dev.xiaomu.crown.storage.model.CardRedemptionResult;
+import dev.xiaomu.crown.storage.model.CardRedemptionStatus;
 import dev.xiaomu.crown.storage.model.CoinAdjustmentResult;
 import dev.xiaomu.crown.storage.model.InternalPaymentResult;
 import dev.xiaomu.crown.storage.model.InternalPaymentStatus;
 import dev.xiaomu.crown.storage.model.OrderPreparationStatus;
-import dev.xiaomu.crown.storage.model.OwnedTitleDurationStatus;
 import dev.xiaomu.crown.storage.model.OwnedTitleKind;
 import dev.xiaomu.crown.storage.model.OwnedTitleRecord;
 import dev.xiaomu.crown.storage.model.OwnedTitleStatus;
@@ -28,7 +30,6 @@ import dev.xiaomu.crown.storage.model.PlayerRecord;
 import dev.xiaomu.crown.storage.model.ProductType;
 import dev.xiaomu.crown.storage.model.PurchaseOrderRecord;
 import dev.xiaomu.crown.storage.model.SaleCounterRecord;
-import dev.xiaomu.crown.storage.model.StorageSummary;
 import dev.xiaomu.crown.storage.model.TitleCoinLedgerRecord;
 
 import java.sql.Connection;
@@ -232,82 +233,39 @@ public final class JdbcCrownRepository implements CrownRepository {
     }
 
     @Override
-    public boolean insertOwnedTitleWithAudit(
-            OwnedTitleRecord title,
-            AuditRecord audit
-    ) {
-        Objects.requireNonNull(title, "title");
-        requireGrantAudit(title, audit);
-        return transaction(connection -> {
-            if (findOwnedTitle(connection, title.entryId(), true)
-                    .isPresent()) {
-                return false;
-            }
-            insertOwnedTitle(connection, title);
-            insertAudit(connection, audit);
-            return true;
-        });
+    public boolean softDeleteOwnedTitle(UUID playerId, UUID entryId, String actor, Instant now) {
+        return deleteOwnedTitle(playerId, entryId, actor,
+                new CoreSettings.Deletion(false, 0, false), Long.MAX_VALUE, now).status()
+                == TitleDeletionResult.Status.DELETED;
     }
 
     @Override
-    public OwnedTitleDurationStatus updateOwnedTitleDurationWithAudit(
-            UUID playerId,
-            UUID entryId,
-            Instant expiresAt,
-            AuditRecord audit,
-            Instant now
-    ) {
-        Objects.requireNonNull(playerId, "playerId");
-        Objects.requireNonNull(entryId, "entryId");
-        Objects.requireNonNull(now, "now");
-        requireDurationAudit(playerId, entryId, audit, now);
-
-        return transaction(connection -> {
-            OwnedTitleRecord record =
-                    findOwnedTitle(connection, entryId, true)
-                            .orElse(null);
-            if (record == null) {
-                return OwnedTitleDurationStatus.NOT_FOUND;
-            }
-            if (!record.playerId().equals(playerId)) {
-                return OwnedTitleDurationStatus.NOT_OWNED;
-            }
-            if (record.status() != OwnedTitleStatus.ACTIVE) {
-                return OwnedTitleDurationStatus.DELETED;
-            }
-            if (expiresAt != null
-                    && !expiresAt.isAfter(record.acquiredAt())) {
-                throw new IllegalArgumentException(
-                        "Title expiry must follow acquisition");
-            }
-
-            try (PreparedStatement update = connection.prepareStatement(
-                    "UPDATE " + tables.ownedTitles()
-                            + " SET expires_at = ?"
-                            + " WHERE entry_id = ? AND player_uuid = ?"
-                            + " AND status = 'ACTIVE'")) {
-                if (expiresAt == null) {
-                    update.setNull(1, Types.BIGINT);
-                } else {
-                    update.setLong(1, epoch(expiresAt));
-                }
-                update.setString(2, entryId.toString());
-                update.setString(3, playerId.toString());
-                if (update.executeUpdate() != 1) {
-                    throw new StorageException(
-                            "Owned title changed during duration update");
-                }
-            }
-            insertAudit(connection, audit);
-            return OwnedTitleDurationStatus.UPDATED;
+    public long deletionRefund(UUID playerId, UUID entryId, CoreSettings.Deletion settings, Instant now) {
+        return query(connection -> {
+            OwnedTitleRecord entry = findOwnedTitle(connection, entryId)
+                    .filter(title -> title.playerId().equals(playerId))
+                    .filter(title -> title.status() == OwnedTitleStatus.ACTIVE).orElse(null);
+            return entry == null ? 0 : deletionRefund(connection, entry, settings, now);
         });
     }
 
+    private long deletionRefund(Connection connection, OwnedTitleRecord entry,
+            CoreSettings.Deletion settings, Instant now) throws SQLException {
+        if (entry.purchaseOrderId() == null) return 0;
+        PurchaseOrderRecord order = findOrder(connection, entry.purchaseOrderId()).orElse(null);
+        if (order == null || order.state() != PurchaseOrderState.GRANTED
+                || !entry.playerId().equals(order.playerId())
+                || !entry.entryId().equals(order.entryId())
+                || order.paymentType() != PaymentType.TITLE_COIN) return 0;
+        return settings.refund(order.amountMinor(), entry.expiredAt(now));
+    }
     @Override
-    public boolean softDeleteOwnedTitle(
+    public TitleDeletionResult deleteOwnedTitle(
             UUID playerId,
             UUID entryId,
             String actor,
+            CoreSettings.Deletion settings,
+            long maximumBalance,
             Instant now
     ) {
         Objects.requireNonNull(playerId, "playerId");
@@ -316,6 +274,14 @@ public final class JdbcCrownRepository implements CrownRepository {
         Objects.requireNonNull(now, "now");
 
         return transaction(connection -> {
+            long before = lockBalance(connection, playerId);
+            OwnedTitleRecord entry = findOwnedTitle(connection, entryId, true)
+                    .filter(title -> title.playerId().equals(playerId))
+                    .filter(title -> title.status() == OwnedTitleStatus.ACTIVE).orElse(null);
+            if (entry == null) return new TitleDeletionResult(TitleDeletionResult.Status.NOT_OWNED, 0);
+            long refund = deletionRefund(connection, entry, settings, now);
+            if (refund > 0 && (before > maximumBalance || refund > maximumBalance - before))
+                return new TitleDeletionResult(TitleDeletionResult.Status.BALANCE_LIMIT, 0);
             int changed;
             try (PreparedStatement update = connection.prepareStatement(
                     "UPDATE " + tables.ownedTitles()
@@ -330,7 +296,7 @@ public final class JdbcCrownRepository implements CrownRepository {
                 changed = update.executeUpdate();
             }
             if (changed == 0) {
-                return false;
+                return new TitleDeletionResult(TitleDeletionResult.Status.NOT_OWNED, 0);
             }
             try (PreparedStatement clear = connection.prepareStatement(
                     "UPDATE " + tables.players()
@@ -344,7 +310,19 @@ public final class JdbcCrownRepository implements CrownRepository {
                 clear.setString(3, entryId.toString());
                 clear.executeUpdate();
             }
-            return true;
+            if (refund > 0) {
+                try (PreparedStatement credit = connection.prepareStatement("UPDATE " + tables.players()
+                        + " SET title_coin_balance = ?, updated_at = ? WHERE player_uuid = ?")) {
+                    credit.setLong(1, before + refund);
+                    credit.setLong(2, epoch(now));
+                    credit.setString(3, playerId.toString());
+                    if (credit.executeUpdate() != 1) throw new SQLException("Refund player missing");
+                }
+                // Deletion and credit commit together; replayed deletions never credit twice.
+                insertLedger(connection, playerId, refund, before, before + refund,
+                        actor, "title_deletion:" + entryId, null, now);
+            }
+            return new TitleDeletionResult(TitleDeletionResult.Status.DELETED, refund);
         });
     }
 
@@ -461,10 +439,12 @@ public final class JdbcCrownRepository implements CrownRepository {
     public OrderPreparationStatus prepareOrder(
             PurchaseOrderRecord order,
             long globalStock,
-            int perPlayerLimit
+            int perPlayerLimit,
+            int maximumOwnedTitles
     ) {
         Objects.requireNonNull(order, "order");
         requireSaleLimits(globalStock, perPlayerLimit);
+        if (maximumOwnedTitles < -1) throw new IllegalArgumentException("Invalid warehouse limit");
         if (order.state() != PurchaseOrderState.PREPARED
                 || order.entryId() != null
                 || order.failureCode() != null) {
@@ -485,10 +465,13 @@ public final class JdbcCrownRepository implements CrownRepository {
         }
 
         return transaction(connection -> {
+            lockPlayerForPurchase(connection, order.playerId());
             if (findOrder(connection, order.orderId()).isPresent()) {
                 return OrderPreparationStatus.ORDER_ALREADY_EXISTS;
             }
-            lockPlayerForPurchase(connection, order.playerId());
+            if (maximumOwnedTitles >= 0 && occupiedTitleSlots(connection, order.playerId()) >= maximumOwnedTitles) {
+                return OrderPreparationStatus.WAREHOUSE_FULL;
+            }
 
             if (perPlayerLimit >= 0
                     && countPlayerPurchases(
@@ -839,46 +822,6 @@ public final class JdbcCrownRepository implements CrownRepository {
     }
 
     @Override
-    public List<CardRecord> createCardsWithAudit(
-            List<CardRecord> cards,
-            AuditRecord audit
-    ) {
-        List<CardRecord> batch = List.copyOf(
-                Objects.requireNonNull(cards, "cards"));
-        Objects.requireNonNull(audit, "audit");
-        if (batch.isEmpty() || batch.size() > 64) {
-            throw new IllegalArgumentException(
-                    "Card batch size must be between 1 and 64");
-        }
-        if (audit.persisted()) {
-            throw new IllegalArgumentException(
-                    "A new audit record cannot already have an ID");
-        }
-
-        java.util.HashSet<String> tokens = new java.util.HashSet<>();
-        for (CardRecord card : batch) {
-            requireNewCard(card);
-            if (!tokens.add(card.cardToken())) {
-                throw new IllegalArgumentException(
-                        "Card batch contains duplicate tokens");
-            }
-        }
-
-        return transaction(connection -> {
-            for (CardRecord card : batch) {
-                if (findCard(connection, card.cardToken(), false)
-                        .isPresent()) {
-                    throw new StorageException(
-                            "Crown card token collision");
-                }
-                insertCard(connection, card);
-            }
-            insertAudit(connection, audit);
-            return batch;
-        });
-    }
-
-    @Override
     public Optional<CardRecord> findCard(String cardToken) {
         CardRecord.requireToken(cardToken);
         return query(connection ->
@@ -893,7 +836,7 @@ public final class JdbcCrownRepository implements CrownRepository {
             Instant now
     ) {
         return redeemCard(
-                cardToken, playerId, title, null, now);
+                cardToken, playerId, title, null, -1, now);
     }
 
     @Override
@@ -902,6 +845,7 @@ public final class JdbcCrownRepository implements CrownRepository {
             UUID playerId,
             OwnedTitleRecord title,
             AuditRecord audit,
+            int maximumOwnedTitles,
             Instant now
     ) {
         Objects.requireNonNull(audit, "audit");
@@ -914,7 +858,7 @@ public final class JdbcCrownRepository implements CrownRepository {
                     "Card redemption audit does not match the grant");
         }
         return redeemCard(
-                cardToken, playerId, title, audit, now);
+                cardToken, playerId, title, audit, maximumOwnedTitles, now);
     }
 
     private CardRedemptionResult redeemCard(
@@ -922,6 +866,7 @@ public final class JdbcCrownRepository implements CrownRepository {
             UUID playerId,
             OwnedTitleRecord title,
             AuditRecord audit,
+            int maximumOwnedTitles,
             Instant now
     ) {
         CardRecord.requireToken(cardToken);
@@ -930,6 +875,9 @@ public final class JdbcCrownRepository implements CrownRepository {
         Objects.requireNonNull(now, "now");
 
         return transaction(connection -> {
+            lockPlayerForPurchase(connection, playerId);
+            if (maximumOwnedTitles >= 0 && occupiedTitleSlots(connection, playerId) >= maximumOwnedTitles)
+                return new CardRedemptionResult(CardRedemptionStatus.WAREHOUSE_FULL, null, null);
             Optional<CardRecord> found =
                     findCard(connection, cardToken, true);
             if (found.isEmpty()) {
@@ -1011,24 +959,24 @@ public final class JdbcCrownRepository implements CrownRepository {
     }
 
     @Override
-    public StorageSummary summarize() {
-        return query(connection -> new StorageSummary(
-                JdbcSchema.readVersion(connection, tables),
-                countRows(connection, tables.players()),
-                countRows(connection, tables.ownedTitles()),
-                countRows(connection, tables.purchaseOrders()),
-                countRows(connection, tables.titleCoinLedger()),
-                sumColumn(connection, tables.players(),
-                        "title_coin_balance"),
-                countRows(connection, tables.saleCounters()),
-                countRows(connection, tables.cards()),
-                countRows(connection, tables.audit())));
-    }
-
-    @Override
     public void close() {
         if (closeConnections) {
             connections.close();
+        }
+    }
+
+    private long occupiedTitleSlots(Connection connection, UUID playerId) throws SQLException {
+        String sql = "SELECT (SELECT COUNT(*) FROM " + tables.ownedTitles()
+                + " WHERE player_uuid = ? AND status = 'ACTIVE') + (SELECT COUNT(*) FROM "
+                + tables.purchaseOrders() + " WHERE player_uuid = ? AND state IN "
+                + "('PREPARED', 'PAYMENT_PENDING', 'PAYMENT_COMMITTED'))";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, playerId.toString());
+            statement.setString(2, playerId.toString());
+            try (ResultSet result = statement.executeQuery()) {
+                result.next();
+                return result.getLong(1);
+            }
         }
     }
 
@@ -1825,9 +1773,6 @@ public final class JdbcCrownRepository implements CrownRepository {
         return value == null ? null : DefinitionId.of(value);
     }
 
-    private static NamespacedId nullableNamespacedId(String value) {
-        return value == null ? null : NamespacedId.parse(value);
-    }
 
     private static long epoch(Instant value) {
         return value.toEpochMilli();
@@ -1855,73 +1800,6 @@ public final class JdbcCrownRepository implements CrownRepository {
                 card.duration().expiresAt(now).orElse(null))) {
             throw new IllegalArgumentException(
                     "Owned title does not match Crown card redemption");
-        }
-    }
-
-    private static long countRows(
-            Connection connection,
-            String table
-    ) throws SQLException {
-        try (Statement statement = connection.createStatement();
-             ResultSet result = statement.executeQuery(
-                     "SELECT COUNT(*) FROM " + table)) {
-            if (!result.next()) {
-                throw new SQLException("No table count result");
-            }
-            return result.getLong(1);
-        }
-    }
-
-    private static long sumColumn(
-            Connection connection,
-            String table,
-            String column
-    ) throws SQLException {
-        try (Statement statement = connection.createStatement();
-             ResultSet result = statement.executeQuery(
-                     "SELECT COALESCE(SUM(" + column + "), 0)"
-                             + " FROM " + table)) {
-            if (!result.next()) {
-                throw new SQLException("No column sum result");
-            }
-            long value = result.getLong(1);
-            if (result.wasNull()) {
-                return 0;
-            }
-            return value;
-        }
-    }
-
-    private static void requireGrantAudit(
-            OwnedTitleRecord title,
-            AuditRecord audit
-    ) {
-        Objects.requireNonNull(audit, "audit");
-        if (audit.persisted()
-                || !Objects.equals(
-                audit.playerId(), title.playerId())
-                || !Objects.equals(
-                audit.targetId(), title.entryId().toString())
-                || !audit.createdAt().equals(title.acquiredAt())) {
-            throw new IllegalArgumentException(
-                    "Owned title audit does not match the grant");
-        }
-    }
-
-    private static void requireDurationAudit(
-            UUID playerId,
-            UUID entryId,
-            AuditRecord audit,
-            Instant now
-    ) {
-        Objects.requireNonNull(audit, "audit");
-        if (audit.persisted()
-                || !Objects.equals(audit.playerId(), playerId)
-                || !Objects.equals(
-                audit.targetId(), entryId.toString())
-                || !audit.createdAt().equals(now)) {
-            throw new IllegalArgumentException(
-                    "Duration audit does not match the owned title");
         }
     }
 

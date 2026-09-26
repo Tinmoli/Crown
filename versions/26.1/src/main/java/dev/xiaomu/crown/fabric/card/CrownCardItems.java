@@ -1,18 +1,12 @@
 package dev.xiaomu.crown.fabric.card;
 
-import dev.xiaomu.crown.domain.catalog.DurationType;
-import dev.xiaomu.crown.fabric.CrownServerContext;
 import dev.xiaomu.crown.storage.model.CardRecord;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.CustomData;
-import net.minecraft.world.item.component.ItemLore;
 
-import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -27,38 +21,6 @@ public final class CrownCardItems {
     private static final String TOKEN_KEY = "crown_card_token";
 
     private CrownCardItems() {
-    }
-
-    public static ItemStack create(
-            CrownServerContext context,
-            CardRecord card
-    ) {
-        Objects.requireNonNull(context, "context");
-        Objects.requireNonNull(card, "card");
-
-        ItemStack stack = new ItemStack(Items.PAPER);
-        stack.set(DataComponents.MAX_STACK_SIZE, 1);
-        stack.set(DataComponents.CUSTOM_NAME, plainStyle(
-                renderRaw(context, "card.item.name")));
-        stack.set(DataComponents.LORE, new ItemLore(List.of(
-                plainStyle(renderRaw(
-                        context,
-                        "card.item.title",
-                        card.definitionId().value())),
-                plainStyle(renderRaw(
-                        context,
-                        "card.item.duration",
-                        durationText(context, card))),
-                plainStyle(renderRaw(
-                        context,
-                        "card.item.use")))
-        ));
-
-        CompoundTag tag = new CompoundTag();
-        tag.putBoolean(MARKER_KEY, true);
-        tag.putString(TOKEN_KEY, card.cardToken());
-        stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
-        return stack;
     }
 
     /**
@@ -89,31 +51,4 @@ public final class CrownCardItems {
         return token(stack).filter(token::equals).isPresent();
     }
 
-    private static String durationText(
-            CrownServerContext context,
-            CardRecord card
-    ) {
-        if (card.duration().type() == DurationType.PERMANENT) {
-            return context.runtime().snapshot().languages()
-                    .text("card.duration.permanent");
-        }
-        return context.runtime().snapshot().languages()
-                .text("card.duration.days")
-                .replace("%0%", Integer.toString(card.duration().days()));
-    }
-
-    private static Component renderRaw(
-            CrownServerContext context,
-            String key,
-            String... args
-    ) {
-        return context.messages().renderRaw(
-                context.runtime().snapshot().languages().text(key),
-                args);
-    }
-
-    private static Component plainStyle(Component component) {
-        return component.copy().withStyle(
-                style -> style.withItalic(false));
-    }
 }

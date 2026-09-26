@@ -59,6 +59,11 @@ dependencies {
     include project(":common:config")
     include project(":common:storage")
     include project(":common:runtime")
+    include "net.kyori:adventure-text-minimessage:${adventure_version}"
+    include "net.kyori:adventure-api:${adventure_version}"
+    include "net.kyori:adventure-key:${adventure_version}"
+    include "net.kyori:examination-api:1.3.0"
+    include "net.kyori:examination-string:1.3.0"
     include "eu.pb4:sgui:${sguiVersion}"
     include "org.snakeyaml:snakeyaml-engine:${snakeyaml_engine_version}"
     include "com.google.code.gson:gson:${gson_version}"

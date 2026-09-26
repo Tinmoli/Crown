@@ -9,7 +9,7 @@ import dev.xiaomu.crown.fabric.custom.PlayerCustomTitleSessions;
 import dev.xiaomu.crown.fabric.text.CrownMessages;
 import eu.pb4.sgui.api.ClickType;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
-import eu.pb4.sgui.api.gui.SimpleGui;
+
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.MenuType;
 
@@ -17,12 +17,12 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Crown 主菜单 GUI（DESIGN.md §16）。
+ * Crown 主菜单 GUI。
  *
  * <p>基于 SGUI 虚拟箱子，客户端无需安装 Crown。所有点击回调按配置的稳定
  * 动作名分派，禁止玩家取放物品，符合 §16.4 GUI 安全要求。</p>
  */
-public final class CrownMainGui extends SimpleGui {
+public final class CrownMainGui extends CrownGui {
     private final CrownServerContext context;
 
     private CrownMainGui(
@@ -30,7 +30,7 @@ public final class CrownMainGui extends SimpleGui {
             ServerPlayer player,
             MenuType<?> type
     ) {
-        super(type, player, false);
+        super(context, type, player);
         this.context = context;
     }
 

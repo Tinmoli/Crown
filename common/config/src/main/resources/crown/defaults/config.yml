@@ -48,11 +48,11 @@ custom-title:
   # 正文最少和最多可见 Unicode 字符数。
   minimum-length: 1
   maximum-length: 16
-  # 是否允许十六进制 RGB。
+  # 是否允许十六进制 RGB（&#RRGGBB、§x、&x、MiniMessage 十六进制颜色等）。
   allow-rgb: true
-  # 是否允许渐变标签。
+  # 是否允许 MiniMessage 渐变、彩虹和颜色过渡；同时需要 allow-rgb。
   allow-gradient: true
-  # 是否允许 &0～&f 和 &k～&r。
+  # 是否允许 &/§ 传统颜色、修饰码及 MiniMessage 命名颜色、粗体等修饰。
   allow-formatting: true
   # 聊天输入会话超时时间。
   input-timeout-seconds: 60
@@ -60,8 +60,10 @@ custom-title:
   cancel-keywords:
     - "取消"
     - "cancel"
-  # 在移除格式标记后检查的禁用词。
-  forbidden-words: []
+  # 按实际显示文字匹配违禁词，忽略颜色、英文大小写、全角及零宽格式字符。
+  # 命中后禁止设置和购买，并在聊天栏及屏幕下方显示警告。
+  # OP 豁免违禁词检查。空列表 [] 表示不拦截；修改后 /crown reload 生效。
+  forbidden-words: ["服主", "管理员", "服务器管理员", "管理组", "腐竹", "admin", "administrator", "owner", "server owner"]
 
 # 称号展示设置。每个渠道可独立选择 placeholder、vanilla 或 disabled。
 # placeholder（默认）：Crown 只提供变量，由聊天/TAB/计分板模组显示。
@@ -85,14 +87,20 @@ display:
 purchase:
   # 每名玩家允许存在的未完成订单数。
   maximum-pending-orders-per-player: 1
+  # 每人最多持有的仓库条目数，普通和自定义共同计算；-1 不限制，0 禁止新增。
+  # 已过期但未删除的条目仍占名额；默认称号不占名额。
+  maximum-owned-titles-per-player: -1
+
+# 从仓库删除称号时按该条目实际支付金额退款，不受商品当前价格影响。
+deletion:
+  refund-enabled: true
+  # 0～100，结果向下取整；免费、默认及无购买记录的称号不退款。
+  refund-percent: 100
+  # 过期称号是否仍可退款；默认不退。
+  refund-expired: false
 
 # 防止恶意配置或玩家输入耗尽服务端资源。
 safety:
   maximum-title-source-length: 512
   maximum-visible-title-length: 64
   maximum-gui-open-count-per-player: 1
-
-# 命令兼容设置。
-commands:
-  # 是否注册 /title 别名。默认关闭以减少命令冲突。
-  enable-title-alias: false

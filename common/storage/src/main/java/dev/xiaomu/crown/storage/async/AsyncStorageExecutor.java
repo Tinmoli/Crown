@@ -22,9 +22,6 @@ public final class AsyncStorageExecutor implements AutoCloseable {
     private final ThreadPoolExecutor executor;
     private final Duration shutdownTimeout;
     private final AtomicBoolean closed = new AtomicBoolean();
-    private final Object maintenanceMonitor = new Object();
-    private int acceptedOperations;
-    private boolean maintenance;
 
     private AsyncStorageExecutor(
             String threadPrefix,
@@ -76,126 +73,30 @@ public final class AsyncStorageExecutor implements AutoCloseable {
                 queueCapacity, shutdownTimeout);
     }
 
-    public <T> CompletableFuture<T> submit(
-            Supplier<? extends T> operation
-    ) {
+    public <T> CompletableFuture<T> submit(Supplier<? extends T> operation) {
         Objects.requireNonNull(operation, "operation");
         var future = new CompletableFuture<T>();
-        synchronized (maintenanceMonitor) {
-            if (closed.get()) {
-                future.completeExceptionally(new StorageException(
-                        "Crown storage executor is closed"));
-                return future;
-            }
-            if (maintenance) {
-                future.completeExceptionally(new StorageException(
-                        "Crown storage is in maintenance mode"));
-                return future;
-            }
-            acceptedOperations++;
-            try {
-                /*
-                 * 计数和入队必须位于同一临界区。否则维护任务可能在两者之间
-                 * 抢先入队，并在单线程 SQLite 执行器中等待排在它后面的
-                 * 普通任务，形成死锁。
-                 */
-                executor.execute(() -> {
-                    try {
-                        if (!future.isCancelled()) {
-                            future.complete(operation.get());
-                        }
-                    } catch (Throwable throwable) {
-                        future.completeExceptionally(throwable);
-                    } finally {
-                        operationFinished();
-                    }
-                });
-            } catch (RejectedExecutionException exception) {
-                acceptedOperations--;
-                future.completeExceptionally(new StorageException(
-                        closed.get()
-                                ? "Crown storage executor is closed"
-                                : "Crown storage queue is full",
-                        exception));
-            }
+        try {
+            executor.execute(() -> {
+                try {
+                    if (!future.isCancelled()) future.complete(operation.get());
+                } catch (Throwable failure) {
+                    future.completeExceptionally(failure);
+                }
+            });
+        } catch (RejectedExecutionException failure) {
+            future.completeExceptionally(new StorageException(
+                    closed.get() ? "Crown storage executor is closed"
+                            : "Crown storage queue is full", failure));
         }
         return future;
     }
-
     public CompletableFuture<Void> run(Runnable operation) {
         Objects.requireNonNull(operation, "operation");
         return submit(() -> {
             operation.run();
             return null;
         });
-    }
-
-    /**
-     * 独占执行维护任务。调用成功后立即拒绝新的普通任务，等待此前已接收的
-     * 任务全部完成，再执行维护操作；成功、失败或取消后均恢复普通模式。
-     */
-    public <T> CompletableFuture<T> submitMaintenance(
-            Supplier<? extends T> operation
-    ) {
-        Objects.requireNonNull(operation, "operation");
-        var future = new CompletableFuture<T>();
-        synchronized (maintenanceMonitor) {
-            if (closed.get()) {
-                future.completeExceptionally(new StorageException(
-                        "Crown storage executor is closed"));
-                return future;
-            }
-            if (maintenance) {
-                future.completeExceptionally(new StorageException(
-                        "Crown storage maintenance is already running"));
-                return future;
-            }
-            maintenance = true;
-            try {
-                executor.execute(() -> {
-                    try {
-                        awaitAcceptedOperations();
-                        if (!future.isCancelled()) {
-                            future.complete(operation.get());
-                        }
-                    } catch (Throwable throwable) {
-                        future.completeExceptionally(throwable);
-                    } finally {
-                        synchronized (maintenanceMonitor) {
-                            maintenance = false;
-                            maintenanceMonitor.notifyAll();
-                        }
-                    }
-                });
-            } catch (RejectedExecutionException exception) {
-                maintenance = false;
-                maintenanceMonitor.notifyAll();
-                future.completeExceptionally(new StorageException(
-                        closed.get()
-                                ? "Crown storage executor is closed"
-                                : "Crown storage queue is full",
-                        exception));
-            }
-        }
-        return future;
-    }
-
-    public boolean maintenance() {
-        synchronized (maintenanceMonitor) {
-            return maintenance;
-        }
-    }
-
-    public int queuedOperations() {
-        return executor.getQueue().size();
-    }
-
-    public int activeOperations() {
-        return executor.getActiveCount();
-    }
-
-    public boolean closed() {
-        return closed.get();
     }
 
     @Override
@@ -228,39 +129,6 @@ public final class AsyncStorageExecutor implements AutoCloseable {
             if (interrupted) {
                 Thread.currentThread().interrupt();
             }
-        }
-    }
-
-    private void operationFinished() {
-        synchronized (maintenanceMonitor) {
-            acceptedOperations--;
-            if (acceptedOperations < 0) {
-                acceptedOperations = 0;
-                throw new IllegalStateException(
-                        "Crown storage operation count underflow");
-            }
-            if (acceptedOperations == 0) {
-                maintenanceMonitor.notifyAll();
-            }
-        }
-    }
-
-    private void awaitAcceptedOperations() {
-        boolean interrupted = false;
-        synchronized (maintenanceMonitor) {
-            while (acceptedOperations != 0) {
-                try {
-                    maintenanceMonitor.wait();
-                } catch (InterruptedException exception) {
-                    interrupted = true;
-                    break;
-                }
-            }
-        }
-        if (interrupted) {
-            Thread.currentThread().interrupt();
-            throw new StorageException(
-                    "Interrupted while entering storage maintenance");
         }
     }
 

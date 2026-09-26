@@ -138,6 +138,84 @@ final class TitleCoinPurchaseTest {
         }
     }
 
+    @Test void warehouseLimitCoversCatalogAndCustomAndDeletionFreesSlot() throws Exception {
+        try (var runtime = start()) {
+            UUID player = player(runtime, 200);
+            var core = runtime.snapshot().core();
+            var settings = new dev.xiaomu.crown.config.model.CoreSettings.Purchase(2, 1);
+            var first = await(runtime.purchaseService().purchaseCatalog(player,
+                    runtime.snapshot().catalog().find("veteran").orElseThrow(), true,
+                    settings, PurchaseIdentifiers.create()));
+            var blocked = await(runtime.purchaseService().purchaseCustom(player, core.customTitle(),
+                    core.defaultTitle().content(), settings, PurchaseIdentifiers.create()));
+            assertEquals(PurchaseStatus.WAREHOUSE_FULL, blocked.status());
+            assertEquals(150, balance(runtime, player));
+            var deletion = await(runtime.storageExecutor().submit(() -> runtime.storageBackend().repository()
+                    .deleteOwnedTitle(player, first.entryId(), "test", core.deletion(), Long.MAX_VALUE, Instant.now())));
+            assertEquals(50, deletion.refund());
+            assertEquals(PurchaseStatus.GRANTED, await(runtime.purchaseService().purchaseCustom(player,
+                    core.customTitle(), core.defaultTitle().content(), settings, PurchaseIdentifiers.create())).status());
+        }
+    }
+
+    @Test void deletionRefundsPaidAmountOnceAndClearsEquippedTitle() throws Exception {
+        try (var runtime = start()) {
+            UUID player = player(runtime, 100);
+            var bought = await(buy(runtime, player, "veteran", true, PurchaseIdentifiers.create()));
+            await(runtime.storageExecutor().submit(() -> runtime.wardrobe().equip(player, bought.entryId())));
+            var policy = new dev.xiaomu.crown.config.model.CoreSettings.Deletion(true, 33, false);
+            var repository = runtime.storageBackend().repository();
+            assertEquals(16, await(runtime.storageExecutor().submit(() -> repository.deletionRefund(
+                    player, bought.entryId(), policy, Instant.now()))));
+            var first = runtime.storageExecutor().submit(() -> repository.deleteOwnedTitle(
+                    player, bought.entryId(), "test", policy, Long.MAX_VALUE, Instant.now()));
+            var second = runtime.storageExecutor().submit(() -> repository.deleteOwnedTitle(
+                    player, bought.entryId(), "test", policy, Long.MAX_VALUE, Instant.now()));
+            assertEquals(16, await(first).refund());
+            assertEquals(dev.xiaomu.crown.storage.model.TitleDeletionResult.Status.NOT_OWNED, await(second).status());
+            assertEquals(66, balance(runtime, player));
+            assertEquals(TitleSelection.none(), await(runtime.storageExecutor().submit(() -> repository.findPlayer(player).orElseThrow().selection())));
+        }
+    }
+
+    @Test void refundFailureRollsBackDeletionAndBalanceLimitKeepsTitle() throws Exception {
+        try (var runtime = start()) {
+            UUID player = player(runtime, 100);
+            var bought = await(buy(runtime, player, "veteran", true, PurchaseIdentifiers.create()));
+            var repository = runtime.storageBackend().repository();
+            var policy = runtime.snapshot().core().deletion();
+            assertEquals(dev.xiaomu.crown.storage.model.TitleDeletionResult.Status.BALANCE_LIMIT,
+                    await(runtime.storageExecutor().submit(() -> repository.deleteOwnedTitle(player,
+                            bought.entryId(), "test", policy, 75, Instant.now()))).status());
+            try (var connection = runtime.storageBackend().connections().open(); var sql = connection.createStatement()) {
+                sql.execute("CREATE TRIGGER fail_refund BEFORE INSERT ON " + runtime.storageBackend().tables().titleCoinLedger()
+                        + " BEGIN SELECT RAISE(ABORT, 'test refund failure'); END");
+            }
+            assertThrows(Exception.class, () -> await(runtime.storageExecutor().submit(() -> repository.deleteOwnedTitle(
+                    player, bought.entryId(), "test", policy, Long.MAX_VALUE, Instant.now()))));
+            assertEquals(50, balance(runtime, player));
+            assertNull(await(runtime.storageExecutor().submit(() -> repository.findOwnedTitle(bought.entryId()).orElseThrow().deletedAt())));
+        }
+    }
+
+    @Test void expiredRefundIsConfigurableAndWrongOwnerCannotDelete() throws Exception {
+        try (var runtime = start()) {
+            UUID player = player(runtime, 100);
+            UUID other = player(runtime, 1);
+            var bought = await(buy(runtime, player, "event_winner", true, PurchaseIdentifiers.create()));
+            var repository = runtime.storageBackend().repository();
+            Instant later = Instant.now().plusSeconds(31L * 86400);
+            var disabled = new dev.xiaomu.crown.config.model.CoreSettings.Deletion(true, 100, false);
+            var enabled = new dev.xiaomu.crown.config.model.CoreSettings.Deletion(true, 100, true);
+            assertEquals(0, await(runtime.storageExecutor().submit(() -> repository.deletionRefund(player, bought.entryId(), disabled, later))));
+            assertEquals(50, await(runtime.storageExecutor().submit(() -> repository.deletionRefund(player, bought.entryId(), enabled, later))));
+            assertEquals(dev.xiaomu.crown.storage.model.TitleDeletionResult.Status.NOT_OWNED,
+                    await(runtime.storageExecutor().submit(() -> repository.deleteOwnedTitle(other, bought.entryId(), "test", enabled, Long.MAX_VALUE, later))).status());
+            assertEquals(0, await(runtime.storageExecutor().submit(() -> repository.deleteOwnedTitle(player, bought.entryId(), "test", disabled, Long.MAX_VALUE, later))).refund());
+            assertEquals(50, balance(runtime, player));
+        }
+    }
+
     private static <T> T await(CompletionStage<T> stage) throws Exception {
         return stage.toCompletableFuture().get(10, TimeUnit.SECONDS);
     }

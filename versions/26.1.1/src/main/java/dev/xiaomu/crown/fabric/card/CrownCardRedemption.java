@@ -24,7 +24,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 称号卡命令与右键交互共用的异步兑换入口。
+ * 称号卡右键交互的异步兑换入口。
  *
  * <p>所有数据库工作在存储执行器完成，物品消耗与消息反馈切回服务器主线程。
  * Repository 保证 token 标记、仓库条目和审计处于同一事务。</p>
@@ -90,28 +90,6 @@ public final class CrownCardRedemption {
         return true;
     }
 
-    /** 主手优先，其次副手；供 /crown card redeem 使用。 */
-    public static boolean redeemAnyHand(
-            CrownServerContext context,
-            ServerPlayer player
-    ) {
-        if (CrownCardItems.token(
-                player.getItemInHand(InteractionHand.MAIN_HAND))
-                .isPresent()) {
-            return redeemHeld(
-                    context, player, InteractionHand.MAIN_HAND);
-        }
-        if (CrownCardItems.token(
-                player.getItemInHand(InteractionHand.OFF_HAND))
-                .isPresent()) {
-            return redeemHeld(
-                    context, player, InteractionHand.OFF_HAND);
-        }
-        player.sendSystemMessage(context.messages()
-                .render("card.redeem.no-card"));
-        return false;
-    }
-
     private static RedemptionOutcome redeemStored(
             CrownServerContext context,
             String token,
@@ -153,7 +131,9 @@ public final class CrownCardRedemption {
                         playerId,
                         owned,
                         audit,
+                        context.core().purchase().maximumOwnedTitlesPerPlayer(),
                         now);
+        if (result.status() == CardRedemptionStatus.WAREHOUSE_FULL) return new RedemptionOutcome(OutcomeStatus.WAREHOUSE_FULL, null, null);
         if (result.status() == CardRedemptionStatus.REDEEMED) {
             context.runtime().playerTitleCache()
                     .load(playerId, playerName);
@@ -228,6 +208,7 @@ public final class CrownCardRedemption {
             RedemptionOutcome outcome
     ) {
         switch (outcome.status()) {
+            case WAREHOUSE_FULL -> player.sendSystemMessage(context.messages().render("purchase.warehouse-full"));
             case REDEEMED -> {
                 consumeTokenCard(player, token);
                 player.sendSystemMessage(context.messages()
@@ -281,6 +262,7 @@ public final class CrownCardRedemption {
     }
 
     private enum OutcomeStatus {
+        WAREHOUSE_FULL,
         REDEEMED,
         NOT_FOUND,
         ALREADY_REDEEMED,

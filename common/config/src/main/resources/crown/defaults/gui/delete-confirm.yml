@@ -22,13 +22,14 @@ buttons:
     name: "{title_preview}"
     lore:
       - "&7条目：{entry_id}"
-      - "&c删除不退款"
+      - "&a预计退还：{refund} {title_coin_unit}"
   confirm:
     slot: 11
     item: "minecraft:red_concrete"
     name: "&c确认删除"
     lore:
       - "&7不可撤销"
+      - "&7实际退款以确认时的到期状态为准"
   cancel:
     slot: 15
     item: "minecraft:lime_concrete"

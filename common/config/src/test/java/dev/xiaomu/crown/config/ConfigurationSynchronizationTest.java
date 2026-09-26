@@ -32,7 +32,6 @@ final class ConfigurationSynchronizationTest {
             Pattern.compile("@([a-z0-9][a-z0-9._-]*)");
     private static final List<String> DEFAULT_GUI_FILES = List.of(
             "admin-shop.yml",
-            "admin-warehouse.yml",
             "custom-confirm.yml",
             "delete-confirm.yml",
             "main.yml",

@@ -27,9 +27,9 @@ titles:
     enabled: true
     visible: true
     # 称号正文与显示图标。
-    text: "活动冠军"
-    prefix: ""
-    suffix: ""
+    text: "&#FFD700活动冠军"
+    prefix: "&7["
+    suffix: "&7]"
     icon: "minecraft:golden_helmet"
     description:
       - "&e限时 30 天"

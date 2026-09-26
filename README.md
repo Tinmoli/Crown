@@ -1,128 +1,133 @@
 # Crown
 
-Crown 是 Fabric 服务端称号商城模组。玩家通过箱子 GUI 浏览、购买、佩戴和删除称号，普通客户端无需安装模组。
+Crown 是 Fabric 服务端称号商城模组。玩家使用箱子菜单购买、自定义和佩戴称号，普通客户端无需安装 Crown。
 
-**所有购买只使用 Crown 内置称号币。管理员通过命令发币，玩家之间不支持转账。无需安装 Mint 或其他经济模组。**
+所有购买使用内置称号币，由管理员通过命令发放。支持限时称号、仓库容量限制、删除退款、颜色与渐变，以及 LuckPerms 权限和 Text Placeholder API 变量。
 
-## 安装与版本
+## 安装
 
-- 支持 Minecraft 26.1、26.1.1、26.1.2、26.2，每个版本使用对应 JAR。
-- 要求 Java 25、Fabric Loader 0.19.3+、对应版本的 Fabric API。
-- SGUI 和数据库驱动随 JAR 打包。
-- LuckPerms、Text Placeholder API 为可选集成。
-- 默认 SQLite，也保留 MySQL 存储支持。
-
-当前为开发版，配置和数据库按当前结构使用，不提供旧经济版本的升级或价格换算功能。
-
-## 常用命令
-
-玩家：
-
-```text
-/crown                         打开主菜单
-/crown shop                    打开称号商城
-/crown warehouse               打开称号仓库
-/crown buy <称号ID>             打开购买确认页
-/crown custom                  聊天输入自定义称号，再进入确认页
-/crown coin balance            查看称号币余额
-```
-
-管理员：
-
-```text
-/crown coin give <玩家> <数量>   发放称号币
-/crown coin take <玩家> <数量>   扣除称号币
-/crown coin set <玩家> <数量>    设置称号币余额
-/crown coin look <玩家>         查看指定玩家余额
-/crown title                   打开商品管理 GUI
-/crown title price <ID> <价格>  设置称号币价格
-/crown reload                  重载商品、语言和 GUI 配置
-```
-
-发币权限为 `crown.admin.coin`，无权限插件时回退到 OP 等级 3。商品管理使用 `crown.admin.title`。
-数量和价格为非负整数，商品 `price: 0` 表示免费领取。
-
-## GUI 使用
-
-1. `/crown` 打开主菜单，选择商城、仓库或自定义称号。
-2. 商城左键点击可购买商品，确认页显示称号、称号币价格和有效期。
-3. 点击唯一的购买按钮。余额不足时不扣币、不发放；成功后称号进入仓库。
-4. 仓库支持佩戴、卸下和删除。删除需要二次确认，不退还称号币。
-5. 管理员商品 GUI 支持创建、启停、图标、价格、文本、期限、库存和删除。
-6. 点击价格设置后，在聊天中输入 `50` 或 `price=50`；输入 `cancel` 取消。
-
-确认期间商品被改价、修改或删除时，会拒绝旧确认并提示重新打开。重复点击有处理中锁定和订单幂等保护。
-
-## 最简商品配置
-
-首次启动生成 `config/crown/`。
-
-```yaml
-# titles.yml
-config-version: 3
-titles:
-  welcome:
-    text: "欢迎"
-    icon: "minecraft:name_tag"
-    description:
-      - "&7欢迎称号"
-    price: 10
-```
-
-省略 `duration` 表示永久；限时称号使用 `duration.days`。按需添加 `sale.global-stock`、
-`sale.per-player-limit`、`sale.starts-at`、`sale.ends-at` 和 `requirement.permission`。
-
-自定义称号价格在 `config.yml` 的 `custom-title.price` 中设置。称号币名称、符号和余额上限在 `title-coin` 中设置。
-数据库连接设置修改后需要重启；重载会拒绝存储设置变化，继续保留当前配置和连接。
-
-## 称号显示
-
-聊天、TAB、头顶名称分别支持 `placeholder`、`vanilla`、`disabled`：
+1. 使用 Java 25、Fabric Loader 0.19.3 或更高版本，以及对应 Minecraft 版本的 Fabric API。
+2. 将匹配服务端版本的 Crown JAR 放入 `mods`：支持 26.1、26.1.1、26.1.2、26.2，版本包不可混用。
+3. 启动服务端，在 `config/crown/` 中生成配置。默认使用 SQLite，无需另装数据库或经济模组。
+4. 按需安装服务端 LuckPerms 和 Text Placeholder API；SGUI、颜色解析库及数据库驱动已经包含在 Crown 中。
+5. 配置称号显示。默认交给外部模组读取变量；只想使用 Crown 直接显示时，在 `config.yml` 中设置：
 
 ```yaml
 display:
   channels:
-    chat: "placeholder"
-    tab: "placeholder"
-    nametag: "placeholder"
+    chat: "vanilla"
+    tab: "vanilla"
+    nametag: "vanilla"
 ```
 
-`placeholder` 默认交由外部聊天/TAB 模组读取变量；需要 Crown 直接显示时改为 `vanilla`。
-聊天只装饰发送者名称，头顶显示会避让其他模组的队伍。
+修改后执行 `/crown reload`。使用 TAB 等外部模组时，参阅[称号显示与颜色](DISPLAY.md)。
 
-安装 Text Placeholder API 后可使用 `%crown:title%`、`%crown:title_text%`、`%crown:title_prefix%`、
-`%crown:title_suffix%`、`%crown:title_id%`、`%crown:title_definition%`、`%crown:title_plain%`、
-`%crown:title_state%`、`%crown:title_expires%`、`%crown:title_coin%`、`%crown:title_coin_raw%`。
+## 第一次使用
 
-GUI 文案位于 `gui/*.yml`。`{title_coin_price}`、`{title_coin_unit}` 等是 GUI 内部变量，和 Placeholder API 变量不同。
+管理员执行 `/crown give 玩家名 100` 发放称号币。玩家输入 `/crown` 打开主菜单：
 
-## 文案配置要求
+- **商城**：选择称号，核对价格和有效期，再确认购买。
+- **仓库**：左键佩戴、右键进入删除确认；也可以使用默认称号或不显示称号。
+- **自定义称号**：在聊天栏输入正文，预览后确认购买。输入 `取消` 或 `cancel` 退出。
 
-除 GUI 外，玩家提示、命令帮助、管理员反馈、错误说明和运行日志等可读文案统一放入语言配置文件，
-通过 `config.yml` 的 `language` 选择 `lang/zh_cn.json`、`lang/en_us.json` 等语言。
-代码只引用语言键和动态参数，不硬编码中文或英文文案，也不把底层英文异常直接显示给玩家。
+安装 LuckPerms 后，即使是 OP 也需要授予 Crown 管理权限，例如：
 
-GUI 文案单独处理，继续使用 `gui/*.yml`，不要求并入上述语言文件。
-这项全面清理目前是待办，当前文档更新不代表代码已经全部符合要求。
-
-## 构建与测试
-
-```powershell
-# 公共业务测试，不加载 Minecraft
-.\gradlew.bat '-PcrownVersions=none' check
-
-# 单版本构建
-.\gradlew.bat '-PcrownVersions=26.2' ':versions:26.2:build'
-
-# 四版本构建、测试、源码一致性检查及收集产物
-.\gradlew.bat build check verifyVersionSources buildAllVersions
+```text
+/lp user 玩家名 permission set crown.admin.* true
+/lp group default permission set crown.shop.custom.color true
 ```
 
-产物：`dist/crown-fabric-<Minecraft版本>-0.1.0-SNAPSHOT.jar`。
+第一条授予管理员权限，第二条允许普通玩家使用彩色自定义称号。完整说明见[权限与 LuckPerms](PERMISSIONS.md)。
 
-工程分为 `common/domain`、`common/config`、`common/storage`、`common/runtime` 和四个独立的版本适配目录。
-详细边界见 [DESIGN.md](DESIGN.md)，验证记录和 GUI 实机检查清单见 [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md)。
+## 命令
+
+游戏内带 `/`，控制台去掉 `/`。控制台可以执行币管理和重载，GUI 必须由游戏内玩家打开。
+
+| 命令 | 用途 |
+|---|---|
+| `/crown` | 主菜单 |
+| `/crown help` | 显示有权使用的命令 |
+| `/crown shop` | 称号商城 |
+| `/crown warehouse` | 称号仓库 |
+| `/crown custom` | 自定义称号 |
+| `/crown balance` | 自己的称号币余额 |
+| `/crown give <玩家> <数量>` | 管理员发币 |
+| `/crown take <玩家> <数量>` | 管理员扣币，最多扣到零 |
+| `/crown set <玩家> <数量>` | 管理员设置余额 |
+| `/crown look <玩家>` | 管理员查看余额 |
+| `/crown title` | 商品管理菜单 |
+| `/crown reload` | 重载配置、语言和菜单 |
+
+数量为非负整数。玩家之间不能转账。购买、佩戴、删除和商品编辑通过菜单完成。
+
+## 管理商品
+
+输入 `/crown title`，创建商品草稿或选择商品编辑。草稿默认禁用，设置正文、图标、价格和期限后再启用。
+
+菜单会提示聊天输入格式，例如：
+
+```text
+text=<gold>活动冠军</gold>
+prefix=&7[
+suffix=&7]
+price=50
+duration=limited:30
+stock=100
+limit=1
+```
+
+永久期限使用 `duration=permanent`，无限库存或不限购使用 `stock=unlimited`、`limit=unlimited`。也可直接编辑 `titles.yml`，详见[配置说明](CONFIGURATION.md)。
+
+## 仓库上限与删除退款
+
+`config.yml`：
+
+```yaml
+purchase:
+  maximum-pending-orders-per-player: 1
+  maximum-owned-titles-per-player: 20
+
+deletion:
+  refund-enabled: true
+  refund-percent: 100
+  refund-expired: false
+```
+
+示例限制每名玩家最多持有 20 个条目。默认上限为 `-1`（不限），`0` 表示禁止新增。普通、自定义及称号卡条目共用名额；已过期但未删除的条目仍占名额，默认称号不占。满仓时拒绝新增，不扣币。
+
+删除退款按该条目**实际购买价格**计算，默认退 100%，可关闭或设置为 0～100 的整数比例，结果向下取整。免费领取和没有购买记录的条目不退款。过期条目默认不退款，可通过 `refund-expired` 开启。
+
+确认页显示预计退款。重复点击不会重复退款；退款超过余额上限时，称号保留。删除不会恢复商品总库存或个人累计限购次数。调低仓库上限不会自动删除现有称号。
+
+## 配置与数据
+
+| 文件 | 内容 |
+|---|---|
+| `config/crown/config.yml` | 默认称号、自定义、称号币、显示、容量和退款 |
+| `config/crown/titles.yml` | 商品 |
+| `config/crown/storage.yml` | SQLite / MySQL 连接 |
+| `config/crown/lang/*.json` | 提示、帮助和错误文案 |
+| `config/crown/gui/*.yml` | 菜单布局和文案 |
+| `config/crown/data/crown.db` | 默认 SQLite 玩家数据 |
+
+数据库设置修改后需要重启。备份时先正常停服，再复制整个 `config/crown/`；如果使用 MySQL，还需要备份数据库。不要为了重新生成配置而删除玩家数据库。
+
+[配置说明](CONFIGURATION.md) · [称号显示与颜色](DISPLAY.md) · [权限与 LuckPerms](PERMISSIONS.md)
+
+## 常见问题
+
+**购买后在哪里佩戴？** 打开仓库，左键点击称号。购买不会自动替换当前佩戴。
+
+**为什么修改商品后，已经买到的称号没有变化？** 仓库保存购买时的文字、前后缀和有效期。商品修改、下架或删除只影响后续购买。
+
+**为什么称号有 UUID？** 每份仓库条目都有独立 UUID，用来区分重复购买的同款称号。仓库同时显示来源、获取时间和到期时间。
+
+**为什么看不到称号？** 默认显示模式是 `placeholder`，需要在外部模组中配置变量；也可以改为 `vanilla`。头顶显示若被其他模组队伍占用，Crown 会避让。
+
+**为什么 OP 没有管理命令？** 安装 LuckPerms 后以 LP 权限为准，按权限文档授权后重新登录刷新命令补全。
+
+**为什么旧菜单没有退款说明？** 已有菜单文案会保留。将删除确认页 lore 改为 `预计退还：{refund} {title_coin_unit}`；仓库导航 lore 可使用 `{owned_count}/{owned_limit}`。也可备份相应 GUI 文件后移走，再重载生成默认菜单，无需删除数据库。
 
 ## 许可
 
-CC0-1.0。
+[CC0-1.0](LICENSE)。

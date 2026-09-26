@@ -21,35 +21,25 @@ public final class CrownGuiSessions {
     }
 
     public static void main(CrownServerContext context, ServerPlayer player) {
-        register(player, new Session(context, Page.MAIN, null, null));
+        register(player, new Session(context, Page.MAIN, player.getUUID()));
     }
 
     public static void shop(CrownServerContext context, ServerPlayer player) {
-        register(player, new Session(context, Page.SHOP, null, null));
+        register(player, new Session(context, Page.SHOP, player.getUUID()));
     }
 
     public static void warehouse(
             CrownServerContext context,
             ServerPlayer player
     ) {
-        register(player, new Session(context, Page.WAREHOUSE, null, null));
+        register(player, new Session(context, Page.WAREHOUSE, player.getUUID()));
     }
 
     public static void adminShop(
             CrownServerContext context,
             ServerPlayer player
     ) {
-        register(player, new Session(context, Page.ADMIN_SHOP, null, null));
-    }
-
-    public static void adminWarehouse(
-            CrownServerContext context,
-            ServerPlayer administrator,
-            UUID targetId,
-            String targetName
-    ) {
-        register(administrator, new Session(
-                context, Page.ADMIN_WAREHOUSE, targetId, targetName));
+        register(player, new Session(context, Page.ADMIN_SHOP, player.getUUID()));
     }
 
     public static void clear(ServerPlayer player) {
@@ -87,42 +77,25 @@ public final class CrownGuiSessions {
                 case SHOP -> CrownShopGui.open(context, player);
                 case WAREHOUSE -> CrownWarehouseGui.open(context, player);
                 case ADMIN_SHOP -> CrownAdminShopGui.open(context, player);
-                case ADMIN_WAREHOUSE -> CrownAdminWarehouseGui.open(
-                        context, player, session.targetId(), session.targetName());
             }
         }
     }
 
     private static void register(ServerPlayer player, Session session) {
-        SESSIONS.put(player.getUUID(), session.withPlayer(player.getUUID()));
+        SESSIONS.put(player.getUUID(), session);
     }
 
     private enum Page {
         MAIN,
         SHOP,
         WAREHOUSE,
-        ADMIN_SHOP,
-        ADMIN_WAREHOUSE
+        ADMIN_SHOP
     }
 
     private record Session(
             CrownServerContext context,
             Page page,
-            UUID targetId,
-            String targetName,
             UUID playerId
     ) {
-        private Session(
-                CrownServerContext context,
-                Page page,
-                UUID targetId,
-                String targetName
-        ) {
-            this(context, page, targetId, targetName, null);
-        }
-
-        private Session withPlayer(UUID id) {
-            return new Session(context, page, targetId, targetName, id);
-        }
     }
 }

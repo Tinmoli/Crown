@@ -12,14 +12,12 @@ import java.util.regex.Pattern;
 public record StorageSettings(
         Type type,
         Sqlite sqlite,
-        Mysql mysql,
-        Migration migration
+        Mysql mysql
 ) {
     public StorageSettings {
         type = Objects.requireNonNull(type, "type");
         sqlite = Objects.requireNonNull(sqlite, "sqlite");
         mysql = Objects.requireNonNull(mysql, "mysql");
-        migration = Objects.requireNonNull(migration, "migration");
     }
 
     public enum Type {
@@ -38,9 +36,7 @@ public record StorageSettings(
             String path,
             Duration busyTimeout,
             boolean wal,
-            SqliteSynchronous synchronous,
-            boolean snapshotBeforeMigration,
-            int maximumSnapshots
+            SqliteSynchronous synchronous
     ) {
         public Sqlite {
             path = requireRelativePath(path);
@@ -49,10 +45,6 @@ public record StorageSettings(
                     Duration.ofMillis(1), Duration.ofMinutes(5));
             synchronous = Objects.requireNonNull(
                     synchronous, "synchronous");
-            if (maximumSnapshots < 1 || maximumSnapshots > 1_000) {
-                throw new IllegalArgumentException(
-                        "SQLite maximum snapshots must be 1..1000");
-            }
         }
 
         private static String requireRelativePath(String value) {
@@ -91,8 +83,7 @@ public record StorageSettings(
             String password,
             String tablePrefix,
             Map<String, String> parameters,
-            Pool pool,
-            boolean requireManualBackupForDestructiveMigration
+            Pool pool
     ) {
         private static final Pattern DATABASE =
                 Pattern.compile("[A-Za-z0-9_$-]{1,64}");
@@ -158,27 +149,6 @@ public record StorageSettings(
                     maximumLifetime, "maximum lifetime",
                     Duration.ofSeconds(30), Duration.ofHours(24));
         }
-    }
-
-    public record Migration(
-            boolean autoCompatibleSchema,
-            boolean protectEmptyTarget,
-            Verification verification
-    ) {
-        public Migration {
-            verification = Objects.requireNonNull(
-                    verification, "verification");
-        }
-    }
-
-    public record Verification(
-            boolean playerCount,
-            boolean ownedTitleCount,
-            boolean titleCoinTotal,
-            boolean orderCount,
-            boolean cardCount,
-            boolean auditCount
-    ) {
     }
 
     private static Duration requireDuration(

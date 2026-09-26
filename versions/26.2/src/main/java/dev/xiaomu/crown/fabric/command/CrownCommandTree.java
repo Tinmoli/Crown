@@ -2,7 +2,6 @@ package dev.xiaomu.crown.fabric.command;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.LongArgumentType;
-import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import dev.xiaomu.crown.config.model.CoreSettings;
@@ -12,17 +11,16 @@ import dev.xiaomu.crown.fabric.gui.CrownMainGui;
 import dev.xiaomu.crown.fabric.gui.CrownGuiSessions;
 import dev.xiaomu.crown.fabric.permission.CrownPermissions;
 import dev.xiaomu.crown.fabric.permission.FabricPermissionService;
-import dev.xiaomu.crown.fabric.text.CrownMessages;
 import dev.xiaomu.crown.runtime.platform.PermissionSource;
-import dev.xiaomu.crown.runtime.wardrobe.EquipResult;
-import dev.xiaomu.crown.storage.model.CoinAdjustmentResult;
+
 import dev.xiaomu.crown.storage.model.PlayerRecord;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.GameProfileArgument;
 import net.minecraft.server.level.ServerPlayer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
@@ -36,20 +34,15 @@ import java.util.concurrent.CompletableFuture;
  * 切回主线程发送消息，全程不阻塞服务器线程。</p>
  */
 public final class CrownCommandTree {
+    private static final Logger LOGGER =
+            LoggerFactory.getLogger(CrownCommandTree.class);
+
     private CrownCommandTree() {
     }
 
     public static void register(
             CommandDispatcher<CommandSourceStack> dispatcher,
             CrownServerContext context
-    ) {
-        register(dispatcher, context, false);
-    }
-
-    public static void register(
-            CommandDispatcher<CommandSourceStack> dispatcher,
-            CrownServerContext context,
-            boolean titleAliasEnabled
     ) {
         Objects.requireNonNull(dispatcher, "dispatcher");
         Objects.requireNonNull(context, "context");
@@ -58,38 +51,19 @@ public final class CrownCommandTree {
                 Commands.literal("crown")
                         .executes(ctx -> openMainGui(context, ctx))
                         .then(help(context))
-                        .then(open(context))
                         .then(warehouse(context))
                         .then(shop(context))
-                        .then(buy(context))
                         .then(custom(context))
-                        .then(delete(context))
-                        .then(card(context))
-                        .then(info(context))
                         .then(reload(context))
-                        .then(coin(context))
-                        .then(equip(context))
-                        .then(unequip(context))
+                        .then(balance(context))
+                        .then(coinAdmin(context, "give"))
+                        .then(coinAdmin(context, "take"))
+                        .then(coinAdmin(context, "set"))
+                        .then(look(context))
                         .then(CrownTitleAdminCommands.title(context))
-                        .then(CrownAdminCommands.player(context))
-                        .then(CrownAdminCommands.view(context))
-                        .then(CrownAdminCommands.storage(context))
-                        .then(CrownAdminCommands.audit(context));
+                        ;
 
         dispatcher.register(root);
-        if (titleAliasEnabled) registerAlias(dispatcher, context);
-    }
-
-    public static void registerAlias(
-            CommandDispatcher<CommandSourceStack> dispatcher,
-            CrownServerContext context
-    ) {
-        dispatcher.register(Commands.literal("title")
-                .requires(source -> can(
-                        context, source,
-                        CrownPermissions.COMMAND_OPEN, 0))
-                .executes(ctx -> openMainGui(context, ctx))
-                .redirect(dispatcher.getRoot().getChild("crown")));
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> help(
@@ -100,12 +74,30 @@ public final class CrownCommandTree {
                         context, source, CrownPermissions.COMMAND_OPEN, 0))
                 .executes(ctx -> {
                     CommandSourceStack source = ctx.getSource();
-                    sendHelp(context, source, "command.help.player");
-                    if (can(context, source, CrownPermissions.ADMIN_RELOAD, 3)) {
-                        sendHelp(context, source, "command.help.admin");
+                    sendHelp(context, source, "help.player-header");
+                    sendHelp(context, source, "help.main");
+                    sendHelp(context, source, "help.warehouse");
+                    if (can(context, source, CrownPermissions.COMMAND_SHOP, 0)) {
+                        sendHelp(context, source, "help.shop");
                     }
-                    if (can(context, source, CrownPermissions.ADMIN_TITLE, 3)) {
-                        sendHelp(context, source, "command.help.title-admin");
+                    if (can(context, source, CrownPermissions.COMMAND_CUSTOM, 0)) {
+                        sendHelp(context, source, "help.custom");
+                    }
+                    if (can(context, source, CrownPermissions.COMMAND_COIN, 0)) {
+                        sendHelp(context, source, "help.balance");
+                    }
+                    boolean coins = can(context, source, CrownPermissions.ADMIN_COIN, 3);
+                    boolean titles = can(context, source, CrownPermissions.ADMIN_TITLE, 3);
+                    boolean reload = can(context, source, CrownPermissions.ADMIN_RELOAD, 3);
+                    if (coins || titles || reload) {
+                        sendHelp(context, source, "help.admin-header");
+                        if (coins) {
+                            for (String action : java.util.List.of("give", "take", "set", "look")) {
+                                sendHelp(context, source, "help." + action);
+                            }
+                        }
+                        if (titles) sendHelp(context, source, "help.title");
+                        if (reload) sendHelp(context, source, "help.reload");
                     }
                     return 1;
                 });
@@ -116,26 +108,13 @@ public final class CrownCommandTree {
             CommandSourceStack source,
             String key
     ) {
-        String template = context.runtime().snapshot().languages().text(key)
-                .replace("\\n", "\n")
-                .replace("\\r", "\r")
-                .replaceAll("[;；](?=&f/crown)", "\n");
+        String template = context.runtime().snapshot().languages().text(key);
         for (String line : template.split("\\R", -1)) {
             if (line.isBlank()) {
                 continue;
             }
-            source.sendSuccess(() -> context.messages().renderRaw(line,
-                    context.runtime().snapshot().languages().text("prefix")), false);
+            source.sendSuccess(() -> context.messages().render("help.line", line), false);
         }
-    }
-
-    private static LiteralArgumentBuilder<CommandSourceStack> open(
-            CrownServerContext context
-    ) {
-        return Commands.literal("open")
-                .requires(source -> can(
-                        context, source, CrownPermissions.COMMAND_OPEN, 0))
-                .executes(ctx -> openWarehouseGui(context, ctx));
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> warehouse(
@@ -164,39 +143,6 @@ public final class CrownCommandTree {
                 });
     }
 
-    private static LiteralArgumentBuilder<CommandSourceStack> buy(
-            CrownServerContext context
-    ) {
-        return Commands.literal("buy")
-                .requires(source -> can(
-                        context, source, CrownPermissions.COMMAND_BUY, 0))
-                .then(Commands.argument(
-                                "title", StringArgumentType.word())
-                        .suggests((ctx, builder) -> suggestDefinitions(
-                                context, builder))
-                        .executes(ctx -> {
-                            ServerPlayer player =
-                                    requirePlayer(context, ctx);
-                            if (player == null) {
-                                return 0;
-                            }
-                            String id = StringArgumentType.getString(
-                                    ctx, "title");
-                            var definition = context.runtime().snapshot()
-                                    .catalog().find(id).orElse(null);
-                            if (definition == null) {
-                                ctx.getSource().sendFailure(
-                                        context.messages().render(
-                                                "shop.unavailable", id));
-                                return 0;
-                            }
-                            dev.xiaomu.crown.fabric.gui
-                                    .CrownPurchaseConfirmGui.open(
-                                    context, player, definition);
-                            return 1;
-                        }));
-    }
-
     private static LiteralArgumentBuilder<CommandSourceStack> custom(
             CrownServerContext context
     ) {
@@ -208,7 +154,10 @@ public final class CrownCommandTree {
                     if (player == null) return 0;
                     if (!context.core().customTitle().enabled()) {
                         ctx.getSource().sendFailure(context.messages()
-                                .render("shop.unavailable", "custom"));
+                                .render("shop.unavailable",
+                                        context.runtime().snapshot()
+                                                .languages().text(
+                                                        "shop.custom-title")));
                         return 0;
                     }
                     boolean started = dev.xiaomu.crown.fabric.custom
@@ -222,74 +171,6 @@ public final class CrownCommandTree {
                 });
     }
 
-    private static LiteralArgumentBuilder<CommandSourceStack> delete(
-            CrownServerContext context
-    ) {
-        return Commands.literal("delete")
-                .requires(source -> can(
-                        context, source, CrownPermissions.COMMAND_OPEN, 0))
-                .then(Commands.argument(
-                                "entry", StringArgumentType.word())
-                        .executes(ctx -> {
-                            ServerPlayer player =
-                                    requirePlayer(context, ctx);
-                            if (player == null) {
-                                return 0;
-                            }
-                            UUID entryId;
-                            try {
-                                entryId = UUID.fromString(
-                                        StringArgumentType.getString(
-                                                ctx, "entry"));
-                            } catch (IllegalArgumentException exception) {
-                                ctx.getSource().sendFailure(
-                                        context.messages().render(
-                                                "warehouse.expired"));
-                                return 0;
-                            }
-                            dev.xiaomu.crown.fabric.gui
-                                    .CrownDeleteConfirmGui.open(
-                                            context, player, entryId);
-                            return 1;
-                        }));
-    }
-
-    private static LiteralArgumentBuilder<CommandSourceStack> card(
-            CrownServerContext context
-    ) {
-        return Commands.literal("card")
-                .then(Commands.literal("redeem")
-                        .requires(source -> can(
-                                context, source,
-                                CrownPermissions.COMMAND_CARD, 0))
-                        .executes(ctx -> {
-                            ServerPlayer player =
-                                    requirePlayer(context, ctx);
-                            if (player == null) {
-                                return 0;
-                            }
-                            return dev.xiaomu.crown.fabric.card
-                                    .CrownCardRedemption.redeemAnyHand(
-                                            context, player) ? 1 : 0;
-                        }))
-                .then(CrownAdminCommands.cardCreate(context));
-    }
-
-    static java.util.concurrent.CompletableFuture<
-            com.mojang.brigadier.suggestion.Suggestions>
-    suggestDefinitions(
-            CrownServerContext context,
-            com.mojang.brigadier.suggestion.SuggestionsBuilder builder
-    ) {
-        for (var definition : context.runtime().snapshot()
-                .catalog().definitions().values()) {
-            if (definition.enabled() && definition.visible()) {
-                builder.suggest(definition.id().value());
-            }
-        }
-        return builder.buildFuture();
-    }
-
     private static int openWarehouseGui(
             CrownServerContext context,
             CommandContext<CommandSourceStack> ctx
@@ -300,28 +181,6 @@ public final class CrownCommandTree {
         }
         dev.xiaomu.crown.fabric.gui.CrownWarehouseGui.open(context, player);
         return 1;
-    }
-
-    private static LiteralArgumentBuilder<CommandSourceStack> info(
-            CrownServerContext context
-    ) {
-        return Commands.literal("info")
-                .requires(source -> can(
-                        context, source, CrownPermissions.ADMIN_INFO, 2))
-                .executes(ctx -> {
-                    CrownMessages messages = context.messages();
-                    var snapshot = context.runtime().snapshot();
-                    String storage = snapshot.storage().type().name()
-                            .toLowerCase(java.util.Locale.ROOT);
-                    String titleCount = Integer.toString(
-                            snapshot.catalog().definitions().size());
-                    ctx.getSource().sendSuccess(
-                            () -> messages.render(
-                                    "command.info",
-                                    "0.1.0", storage, titleCount),
-                            false);
-                    return 1;
-                });
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> reload(
@@ -341,43 +200,37 @@ public final class CrownCommandTree {
                         source.sendSuccess(
                                 () -> context.messages()
                                         .render("command.reload.success"),
-                                true);
+                                false);
+                        if (source.getPlayer() != null) {
+                            LOGGER.info("{}", context.messages().render("command.reload.success").getString());
+                        }
                     }, exception -> {
+                        LOGGER.warn("Crown reload failed", exception);
                         source.sendFailure(context.messages().render(
-                                "command.reload.failed",
-                                safeMessage(exception)));
+                                "command.reload.failed"));
                     });
                     return 1;
                 });
     }
 
-    private static final class ReloadFailedException extends RuntimeException {
-        private static final long serialVersionUID = 1L;
-
-        private ReloadFailedException(IOException cause) {
-            super(cause);
-        }
-    }
-
-    private static LiteralArgumentBuilder<CommandSourceStack> coin(
+    private static LiteralArgumentBuilder<CommandSourceStack> balance(
             CrownServerContext context
     ) {
-        return Commands.literal("coin")
-                .then(Commands.literal("balance")
+        return Commands.literal("balance")
                         .requires(source -> can(
                                 context, source,
                                 CrownPermissions.COMMAND_COIN, 0))
-                        .executes(ctx -> coinBalance(context, ctx)))
-                .then(coinAdmin(context, "give"))
-                .then(coinAdmin(context, "take"))
-                .then(coinAdmin(context, "set"))
-                .then(Commands.literal("look")
+                        .executes(ctx -> coinBalance(context, ctx));
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> look(CrownServerContext context) {
+        return Commands.literal("look")
                         .requires(source -> can(
                                 context, source,
                                 CrownPermissions.ADMIN_COIN, 3))
                         .then(Commands.argument(
                                         "player", GameProfileArgument.gameProfile())
-                                .executes(ctx -> coinLook(context, ctx))));
+                                .executes(ctx -> coinLook(context, ctx)));
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> coinAdmin(
@@ -445,7 +298,7 @@ public final class CrownCommandTree {
                             .orElse(0L);
                     ctx.getSource().sendSuccess(
                             () -> context.messages().render(
-                                    "coin.changed", name,
+                                    "coin.other-balance", name,
                                     formatCoins(coinSettings, balance)),
                             false);
                 },
@@ -477,15 +330,15 @@ public final class CrownCommandTree {
                         () -> context.messages().render(
                                 "coin.changed", name,
                                 formatCoins(coinSettings,
-                                        result.balanceAfter())),
-                        true),
+                                        result)),
+                        false),
                 failure -> ctx.getSource().sendFailure(
                         context.messages().render(
                                 "purchase.failed.storage")));
         return 1;
     }
 
-    private static CoinAdjustmentResult applyCoinChange(
+    private static long applyCoinChange(
             CrownServerContext context,
             UUID id,
             String name,
@@ -506,125 +359,14 @@ public final class CrownCommandTree {
             default -> throw new IllegalArgumentException(
                     "Unknown coin action: " + action);
         };
-        CoinAdjustmentResult result = repository.adjustTitleCoins(
+        long balance = player.titleCoinBalance();
+        if (delta != 0) {
+            balance = repository.adjustTitleCoins(
                 id, delta, coinSettings.maximumBalance(),
-                actor, "admin:" + action, null, now);
+                actor, "admin:" + action, null, now).balanceAfter();
+        }
         context.runtime().playerTitleCache().load(id, name);
-        return result;
-    }
-
-    private static LiteralArgumentBuilder<CommandSourceStack> equip(
-            CrownServerContext context
-    ) {
-        return Commands.literal("equip")
-                .requires(source -> can(
-                        context, source, CrownPermissions.COMMAND_OPEN, 0))
-                .then(Commands.literal("default")
-                        .executes(ctx -> {
-                            ServerPlayer player = requirePlayer(context, ctx);
-                            if (player == null) {
-                                return 0;
-                            }
-                            runEquip(context, ctx, player,
-                                    () -> context.runtime().wardrobe()
-                                            .equipDefault(player.getUUID()));
-                            return 1;
-                        }))
-                .then(Commands.argument("entry", StringArgumentType.word())
-                        .executes(ctx -> {
-                            ServerPlayer player = requirePlayer(context, ctx);
-                            if (player == null) {
-                                return 0;
-                            }
-                            UUID entryId;
-                            try {
-                                entryId = UUID.fromString(
-                                        StringArgumentType.getString(
-                                                ctx, "entry"));
-                            } catch (IllegalArgumentException exception) {
-                                ctx.getSource().sendFailure(context.messages()
-                                        .render("warehouse.expired"));
-                                return 0;
-                            }
-                            runEquip(context, ctx, player,
-                                    () -> context.runtime().wardrobe()
-                                            .equip(player.getUUID(), entryId));
-                            return 1;
-                        }));
-    }
-
-    private static LiteralArgumentBuilder<CommandSourceStack> unequip(
-            CrownServerContext context
-    ) {
-        return Commands.literal("unequip")
-                .requires(source -> can(
-                        context, source, CrownPermissions.COMMAND_OPEN, 0))
-                .executes(ctx -> {
-                    ServerPlayer player = requirePlayer(context, ctx);
-                    if (player == null) {
-                        return 0;
-                    }
-                    runEquip(context, ctx, player,
-                            () -> context.runtime().wardrobe()
-                                    .unequip(player.getUUID()));
-                    return 1;
-                });
-    }
-
-    /** 在存储线程执行佩戴操作，成功后刷新缓存并切回主线程反馈。 */
-    private static void runEquip(
-            CrownServerContext context,
-            CommandContext<CommandSourceStack> ctx,
-            ServerPlayer player,
-            java.util.function.Supplier<EquipResult> operation
-    ) {
-        UUID id = player.getUUID();
-        String name = player.getGameProfile().name();
-        context.mainThread().whenComplete(
-                context.runtime().storageExecutor().submit(() -> {
-                    EquipResult result = operation.get();
-                    if (result == EquipResult.EQUIPPED
-                            || result == EquipResult.EQUIPPED_DEFAULT
-                            || result == EquipResult.UNEQUIPPED) {
-                        context.runtime().playerTitleCache().load(id, name);
-                    }
-                    return result;
-                }),
-                result -> {
-                    if (result == EquipResult.EQUIPPED
-                            || result == EquipResult.EQUIPPED_DEFAULT
-                            || result == EquipResult.UNEQUIPPED) {
-                        CrownNametagDisplay.refreshPlayer(context, player);
-                    }
-                    ctx.getSource().sendSuccess(
-                            () -> equipMessage(context, result), false);
-                },
-                failure -> ctx.getSource().sendFailure(
-                        context.messages().render(
-                                "purchase.failed.storage")));
-    }
-
-    private static net.minecraft.network.chat.Component equipMessage(
-            CrownServerContext context,
-            EquipResult result
-    ) {
-        return switch (result) {
-            case EQUIPPED, ALREADY_EQUIPPED ->
-                    context.messages().render("warehouse.equipped", "");
-            case EQUIPPED_DEFAULT ->
-                    context.messages().render("warehouse.default");
-            case UNEQUIPPED ->
-                    context.messages().render("warehouse.none");
-            case NOT_OWNED ->
-                    context.messages().render(
-                            "shop.unavailable", context.runtime().snapshot()
-                                    .languages().text(
-                                            "gui.reason.not-owned"));
-            case EXPIRED ->
-                    context.messages().render("warehouse.expired");
-            case STORAGE_FAILED ->
-                    context.messages().render("purchase.failed.storage");
-        };
+        return balance;
     }
 
     private static ServerPlayer requirePlayer(
@@ -690,23 +432,7 @@ public final class CrownCommandTree {
     ) {
         return settings.format()
                 .replace("{amount}", Long.toString(amount))
-                .replace("{name}", settings.name());
-    }
-
-    private static String safeMessage(Throwable throwable) {
-        String message = throwable.getMessage();
-        if (message == null || message.isBlank()) {
-            return throwable.getClass().getSimpleName();
-        }
-        String trimmed = message.length() > 128
-                ? message.substring(0, 128)
-                : message;
-        StringBuilder result = new StringBuilder(trimmed.length());
-        trimmed.codePoints().forEach(codePoint -> {
-            if (!Character.isISOControl(codePoint)) {
-                result.appendCodePoint(codePoint);
-            }
-        });
-        return result.toString();
+                .replace("{name}", settings.name())
+                .replace("{symbol}", settings.symbol());
     }
 }

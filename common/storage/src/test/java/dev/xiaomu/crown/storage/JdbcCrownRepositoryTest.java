@@ -7,9 +7,7 @@ import dev.xiaomu.crown.domain.player.TitleSelection;
 import dev.xiaomu.crown.storage.jdbc.JdbcDialect;
 import dev.xiaomu.crown.storage.jdbc.SqliteConnectionFactory;
 import dev.xiaomu.crown.storage.jdbc.TableNames;
-import dev.xiaomu.crown.storage.model.AuditRecord;
 import dev.xiaomu.crown.storage.model.CoinAdjustmentResult;
-import dev.xiaomu.crown.storage.model.OwnedTitleDurationStatus;
 import dev.xiaomu.crown.storage.model.OwnedTitleKind;
 import dev.xiaomu.crown.storage.model.OwnedTitleRecord;
 import dev.xiaomu.crown.storage.model.OwnedTitleStatus;
@@ -159,119 +157,6 @@ final class JdbcCrownRepositoryTest {
                     playerId,
                     TitleSelection.owned(entryId),
                     deletedAt.plusSeconds(1)));
-        }
-    }
-
-    @Test
-    void grantsAndUpdatesOwnedTitleDurationWithAtomicAudit() {
-        UUID playerId = UUID.randomUUID();
-        UUID otherPlayerId = UUID.randomUUID();
-        UUID entryId = UUID.randomUUID();
-
-        try (JdbcCrownRepository repository =
-                     initializedRepository("admin-owned-title.db")) {
-            repository.ensurePlayer(
-                    playerId, "Target",
-                    TitleSelection.none(), CREATED_AT);
-            repository.ensurePlayer(
-                    otherPlayerId, "Other",
-                    TitleSelection.none(), CREATED_AT);
-
-            OwnedTitleRecord granted = title(
-                    entryId, playerId, null,
-                    CREATED_AT.plusSeconds(86_400));
-            AuditRecord grantAudit = new AuditRecord(
-                    0,
-                    "console",
-                    "admin_grant_title",
-                    playerId,
-                    entryId.toString(),
-                    "{\"kind\":\"CATALOG\"}",
-                    CREATED_AT);
-            assertTrue(repository.insertOwnedTitleWithAudit(
-                    granted, grantAudit));
-            assertFalse(repository.insertOwnedTitleWithAudit(
-                    granted, grantAudit));
-            assertEquals(1, repository.findAuditByTarget(
-                    entryId.toString(), 10).size());
-
-            Instant updatedAt = CREATED_AT.plusSeconds(100);
-            Instant newExpiry = CREATED_AT.plusSeconds(172_800);
-            AuditRecord durationAudit = new AuditRecord(
-                    0,
-                    "console",
-                    "admin_update_title_duration",
-                    playerId,
-                    entryId.toString(),
-                    "{\"expiresAt\":\""
-                            + newExpiry + "\"}",
-                    updatedAt);
-            assertEquals(
-                    OwnedTitleDurationStatus.UPDATED,
-                    repository.updateOwnedTitleDurationWithAudit(
-                            playerId, entryId, newExpiry,
-                            durationAudit, updatedAt));
-            assertEquals(newExpiry, repository.findOwnedTitle(entryId)
-                    .orElseThrow().expiresAt());
-            assertEquals(2, repository.findAuditByTarget(
-                    entryId.toString(), 10).size());
-
-            int auditCount = repository.findAuditByTarget(
-                    entryId.toString(), 10).size();
-            assertEquals(
-                    OwnedTitleDurationStatus.NOT_OWNED,
-                    repository.updateOwnedTitleDurationWithAudit(
-                            otherPlayerId, entryId, null,
-                            new AuditRecord(
-                                    0, "console",
-                                    "admin_update_title_duration",
-                                    otherPlayerId,
-                                    entryId.toString(),
-                                    "{}", updatedAt.plusSeconds(1)),
-                            updatedAt.plusSeconds(1)));
-            UUID missingEntry = UUID.randomUUID();
-            assertEquals(
-                    OwnedTitleDurationStatus.NOT_FOUND,
-                    repository.updateOwnedTitleDurationWithAudit(
-                            playerId, missingEntry, null,
-                            new AuditRecord(
-                                    0, "console",
-                                    "admin_update_title_duration",
-                                    playerId,
-                                    missingEntry.toString(),
-                                    "{}", updatedAt.plusSeconds(2)),
-                            updatedAt.plusSeconds(2)));
-            assertEquals(auditCount, repository.findAuditByTarget(
-                    entryId.toString(), 10).size());
-
-            assertTrue(repository.softDeleteOwnedTitle(
-                    playerId, entryId, "console",
-                    updatedAt.plusSeconds(3)));
-            assertEquals(
-                    OwnedTitleDurationStatus.DELETED,
-                    repository.updateOwnedTitleDurationWithAudit(
-                            playerId, entryId, null,
-                            new AuditRecord(
-                                    0, "console",
-                                    "admin_update_title_duration",
-                                    playerId,
-                                    entryId.toString(),
-                                    "{}", updatedAt.plusSeconds(4)),
-                            updatedAt.plusSeconds(4)));
-            assertEquals(auditCount, repository.findAuditByTarget(
-                    entryId.toString(), 10).size());
-
-            assertThrows(IllegalArgumentException.class,
-                    () -> repository
-                            .updateOwnedTitleDurationWithAudit(
-                                    playerId, entryId, null,
-                                    new AuditRecord(
-                                            0, "console",
-                                            "admin_update_title_duration",
-                                            playerId,
-                                            UUID.randomUUID().toString(),
-                                            "{}", updatedAt.plusSeconds(5)),
-                                    updatedAt.plusSeconds(5)));
         }
     }
 

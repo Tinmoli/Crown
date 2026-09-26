@@ -63,9 +63,22 @@ public final class PlayerTitleCache {
     }
 
     public CachedPlayer get(UUID playerId) {
-        return players.getOrDefault(
+        CachedPlayer cached = players.getOrDefault(
                 Objects.requireNonNull(playerId, "playerId"),
                 CachedPlayer.empty(playerId));
+        ResolvedTitle title = cached.title();
+        if (title.state() == SelectionType.DEFAULT) {
+            var configured = snapshots.get().core().defaultTitle();
+            var content = configured.content();
+            title = configured.enabled()
+                    ? new ResolvedTitle(SelectionType.DEFAULT, null, "default",
+                            content.prefix(), content.text(), content.suffix(), null)
+                    : ResolvedTitle.none();
+        } else if (title.expiredAt(clock.instant())) {
+            title = ResolvedTitle.none();
+        }
+        return title == cached.title() ? cached : new CachedPlayer(
+                cached.playerId(), cached.playerName(), cached.titleCoinBalance(), title);
     }
 
     public void put(CachedPlayer player) {
@@ -89,9 +102,6 @@ public final class PlayerTitleCache {
             case NONE -> ResolvedTitle.none();
             case DEFAULT -> {
                 var configured = snapshot.core().defaultTitle();
-                if (!configured.enabled()) {
-                    yield ResolvedTitle.none();
-                }
                 var content = configured.content();
                 yield new ResolvedTitle(
                         SelectionType.DEFAULT, null, "default",

@@ -10,7 +10,7 @@ import dev.xiaomu.crown.fabric.CrownServerContext;
 import dev.xiaomu.crown.fabric.custom.PlayerCustomTitleSessions;
 import eu.pb4.sgui.api.ClickType;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
-import eu.pb4.sgui.api.gui.SimpleGui;
+
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.MenuType;
 
@@ -20,7 +20,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 /** 玩家自定义称号购买确认 GUI。 */
-public final class PlayerCustomConfirmGui extends SimpleGui {
+public final class PlayerCustomConfirmGui extends CrownGui {
     private final CrownServerContext context;
     private final UUID sessionId;
     private final TitleContent content;
@@ -32,7 +32,7 @@ public final class PlayerCustomConfirmGui extends SimpleGui {
             CrownServerContext context, ServerPlayer player, MenuType<?> type,
             UUID sessionId, TitleContent content, GuiLayout layout
     ) {
-        super(type, player, false);
+        super(context, type, player);
         this.context = context;
         this.sessionId = sessionId;
         this.content = content;
@@ -91,7 +91,7 @@ public final class PlayerCustomConfirmGui extends SimpleGui {
     private void handleButton(String action, ClickType clickType) {
         if (!clickType.isLeft || terminalAction) return;
         switch (action) {
-            case "confirm", "pay-title-coin" -> {
+            case "confirm" -> {
                 if (!quotedSettings.equals(context.core().customTitle())) {
                     getPlayer().sendSystemMessage(context.messages().render("purchase.changed"));
                     close();

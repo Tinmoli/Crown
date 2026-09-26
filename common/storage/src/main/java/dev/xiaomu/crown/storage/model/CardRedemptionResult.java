@@ -12,7 +12,7 @@ public record CardRedemptionResult(
     public CardRedemptionResult {
         status = Objects.requireNonNull(status, "status");
         switch (status) {
-            case NOT_FOUND -> {
+            case NOT_FOUND, WAREHOUSE_FULL -> {
                 if (cardRecord != null || grantedTitle != null) {
                     throw new IllegalArgumentException(
                             "Missing card result cannot contain records");

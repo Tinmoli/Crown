@@ -7,7 +7,7 @@ import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/** 把 storage.yml 映射转换为不可变连接和迁移设置。 */
+/** 把 storage.yml 映射转换为不可变连接设置。 */
 public final class StorageSettingsParser {
     public StorageSettings parse(Map<String, Object> root) {
         StorageSettings.Type type = ConfigParsing.enumValue(
@@ -25,12 +25,7 @@ public final class StorageSettingsParser {
                                 StorageSettings.SqliteSynchronous.class,
                                 YamlValues.nonBlankString(
                                         root, "sqlite.synchronous"),
-                                "sqlite.synchronous"),
-                        YamlValues.bool(
-                                root,
-                                "sqlite.snapshot-before-migration"),
-                        YamlValues.integer(
-                                root, "sqlite.maximum-snapshots")));
+                                "sqlite.synchronous")));
 
         Map<String, Object> rawParameters =
                 YamlValues.map(root, "mysql.parameters");
@@ -68,43 +63,9 @@ public final class StorageSettingsParser {
                         YamlValues.nonBlankString(
                                 root, "mysql.table-prefix"),
                         parameters,
-                        pool,
-                        YamlValues.bool(root,
-                                "mysql.require-manual-backup-for-destructive-migration")));
+                        pool));
 
-        StorageSettings.Verification verification =
-                new StorageSettings.Verification(
-                        YamlValues.bool(
-                                root,
-                                "migration.verify.player-count"),
-                        YamlValues.bool(
-                                root,
-                                "migration.verify.owned-title-count"),
-                        YamlValues.bool(
-                                root,
-                                "migration.verify.title-coin-total"),
-                        YamlValues.bool(
-                                root,
-                                "migration.verify.order-count"),
-                        YamlValues.bool(
-                                root,
-                                "migration.verify.card-count"),
-                        YamlValues.bool(
-                                root,
-                                "migration.verify.audit-count"));
-
-        return new StorageSettings(
-                type,
-                sqlite,
-                mysql,
-                new StorageSettings.Migration(
-                        YamlValues.bool(
-                                root,
-                                "migration.auto-compatible-schema"),
-                        YamlValues.bool(
-                                root,
-                                "migration.protect-empty-target"),
-                        verification));
+        return new StorageSettings(type, sqlite, mysql);
     }
 
     private static String scalarString(Object value, String path) {

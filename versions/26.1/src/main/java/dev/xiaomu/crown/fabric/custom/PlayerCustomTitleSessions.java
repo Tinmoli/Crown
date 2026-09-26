@@ -4,6 +4,7 @@ import dev.xiaomu.crown.config.model.CoreSettings;
 import dev.xiaomu.crown.domain.catalog.TitleContent;
 import dev.xiaomu.crown.domain.text.CrownTextParser;
 import dev.xiaomu.crown.domain.text.StyledText;
+import dev.xiaomu.crown.domain.text.TextParseException;
 import dev.xiaomu.crown.domain.text.TextParsePolicy;
 import dev.xiaomu.crown.fabric.CrownServerContext;
 import dev.xiaomu.crown.fabric.display.CrownNametagDisplay;
@@ -13,6 +14,8 @@ import dev.xiaomu.crown.runtime.platform.PermissionSource;
 import dev.xiaomu.crown.runtime.purchase.PurchaseIdentifiers;
 import dev.xiaomu.crown.runtime.purchase.PurchaseStatus;
 import net.minecraft.server.level.ServerPlayer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.util.Locale;
@@ -24,6 +27,8 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class PlayerCustomTitleSessions {
     private static final ConcurrentHashMap<UUID, Session> SESSIONS =
             new ConcurrentHashMap<>();
+    private static final Logger LOGGER =
+            LoggerFactory.getLogger(PlayerCustomTitleSessions.class);
 
     private PlayerCustomTitleSessions() {
     }
@@ -40,10 +45,10 @@ public final class PlayerCustomTitleSessions {
             return false;
         }
         if (!settings.enabled()
-                || CustomTitleInputSessions.hasSession(playerId)
                 || AdminTitleDraftSessions.hasSession(playerId)
                 || AdminTitleTextEditSessions.hasSession(playerId)
-                || AdminTitlePaymentEditSessions.hasSession(playerId)) {
+                || AdminTitlePaymentEditSessions.hasSession(playerId)
+                || AdminTitleSaleEditSessions.hasSession(playerId)) {
             return false;
         }
         Session created = new Session(
@@ -155,10 +160,16 @@ public final class PlayerCustomTitleSessions {
             player.sendSystemMessage(context.messages().render("custom.timeout"));
             return;
         }
+        if (!context.permissions().checkSource(PermissionSource.of(player.createCommandSourceStack()),
+                CrownPermissions.COMMAND_BUY, 0)) {
+            SESSIONS.remove(playerId, session);
+            player.sendSystemMessage(context.messages().render("command.no-permission"));
+            return;
+        }
         Validation validation = validate(context, player, session.content().textSource());
         if (!validation.valid()) {
             SESSIONS.remove(playerId, session);
-            player.sendSystemMessage(context.messages().render("custom.invalid", validation.error()));
+            warnInvalid(context, player, validation.error());
             return;
         }
         Session processing = new Session(session.sessionId(), Phase.PROCESSING,
@@ -188,8 +199,8 @@ public final class PlayerCustomTitleSessions {
                                 failure -> player.sendSystemMessage(
                                         context.messages().render(
                                                 "purchase.failed.storage")));
-                        player.sendSystemMessage(context.messages().render(
-                                "purchase.success", validation.content().textSource()));
+                        player.sendSystemMessage(context.messages().renderTitle(
+                                "purchase.success", validation.content().fullText()));
                     } else {
                         player.sendSystemMessage(resultMessage(context, player, result.status()));
                     }
@@ -220,8 +231,7 @@ public final class PlayerCustomTitleSessions {
         }
         Validation validation = validate(context, player, source);
         if (!validation.valid()) {
-            player.sendSystemMessage(context.messages().render(
-                    "custom.invalid", validation.error()));
+            warnInvalid(context, player, validation.error());
             return;
         }
         Session confirmation = new Session(
@@ -234,6 +244,12 @@ public final class PlayerCustomTitleSessions {
         }
     }
 
+    private static void warnInvalid(CrownServerContext context, ServerPlayer player, String reason) {
+        var warning = context.messages().render("custom.invalid", reason);
+        player.sendSystemMessage(warning);
+        player.sendSystemMessage(warning, true);
+    }
+
     private static Validation validate(
             CrownServerContext context, ServerPlayer player, String source
     ) {
@@ -241,42 +257,59 @@ public final class PlayerCustomTitleSessions {
         if (!context.permissions().checkSource(PermissionSource.of(player.createCommandSourceStack()),
                 CrownPermissions.COMMAND_CUSTOM, 0)) {
             player.sendSystemMessage(context.messages().render("command.no-permission"));
-            return Validation.invalid("missing custom title permission");
+            return Validation.invalid(
+                    reason(context, "custom.invalid.permission"));
         }
-        if (!settings.enabled()) return Validation.invalid("custom titles are disabled");
+        if (!settings.enabled()) {
+            return Validation.invalid(
+                    reason(context, "custom.invalid.disabled"));
+        }
         boolean color = context.permissions().checkSource(
                 PermissionSource.of(player.createCommandSourceStack()),
                 CrownPermissions.CUSTOM_COLOR, 0);
         TextParsePolicy base = settings.inputPolicy(
                 context.core().safety().maximumTitleSourceLength());
         TextParsePolicy policy = color ? base : new TextParsePolicy(
-                base.allowLegacyFormatting(), false, false,
+                false, false, false,
                 base.maximumSourceLength(), base.maximumVisibleLength());
         try {
             StyledText body = new CrownTextParser(policy).parse(source);
             if (body.visibleCodePointCount() < settings.minimumLength()) {
-                return Validation.invalid("visible text is too short");
+                return Validation.invalid(
+                        reason(context, "custom.invalid.too-short"));
             }
-            String plain = body.plainText().toLowerCase(Locale.ROOT);
-            for (String forbidden : settings.forbiddenWords()) {
-                if (!forbidden.isEmpty() && plain.contains(forbidden)) {
-                    return Validation.invalid("contains a forbidden word");
-                }
+            if (settings.rejectsTitle(body, context.server().getPlayerList().isOp(
+                    new net.minecraft.server.players.NameAndId(player.getGameProfile())))) {
+                return Validation.invalid(reason(context, "custom.invalid.forbidden-word"));
             }
             return Validation.valid(new TitleContent(
                     settings.prefixSource(), source, settings.suffixSource(),
                     settings.prefix(), body, settings.suffix()));
+        } catch (TextParseException exception) {
+            LOGGER.debug("Rejected custom title text: {}",
+                    exception.getMessage());
+            return Validation.invalid(reason(context,
+                    "custom.invalid." + exception.langKeySuffix()));
         } catch (IllegalArgumentException exception) {
-            String message = exception.getMessage();
-            return Validation.invalid(message == null || message.isBlank()
-                    ? "invalid text" : safeMessage(message));
+            LOGGER.debug("Rejected custom title text", exception);
+            return Validation.invalid(
+                    reason(context, "custom.invalid.unknown"));
         }
+    }
+
+    /** 把语言键解析为当前语言文案；未知键回退为键名本身。 */
+    private static String reason(
+            CrownServerContext context,
+            String key
+    ) {
+        return context.runtime().snapshot().languages().text(key);
     }
 
     private static net.minecraft.network.chat.Component resultMessage(
             CrownServerContext context, ServerPlayer player, PurchaseStatus status
     ) {
         return switch (status) {
+            case WAREHOUSE_FULL -> context.messages().render("purchase.warehouse-full");
             case INSUFFICIENT_FUNDS -> context.messages().render(
                     "purchase.failed.balance", Long.toString(context.core().customTitle().payment().titleCoinPrice()),
                     Long.toString(context.runtime().playerTitleCache().get(player.getUUID()).titleCoinBalance()));
@@ -287,11 +320,15 @@ public final class PlayerCustomTitleSessions {
             case DISABLED, HIDDEN, NOT_ON_SALE, PERMISSION_DENIED,
                     OUT_OF_STOCK, PLAYER_LIMIT_REACHED ->
                     context.messages().render("shop.unavailable",
-                            status.name().toLowerCase(Locale.ROOT));
+                            reason(context, "shop.status."
+                                    + status.name()
+                                            .toLowerCase(Locale.ROOT)
+                                            .replace('_', '-')));
             case ORDER_CONFLICT, INVALID_STATE ->
                     context.messages().render("purchase.failed.storage");
             case GRANTED -> context.messages().render(
-                    "purchase.success", "custom");
+                    "purchase.success",
+                    reason(context, "shop.custom-title"));
         };
     }
 
@@ -299,13 +336,6 @@ public final class PlayerCustomTitleSessions {
         Session session = SESSIONS.get(playerId);
         return session != null && session.sessionId().equals(sessionId)
                 ? session : null;
-    }
-
-    private static String safeMessage(String value) {
-        StringBuilder result = new StringBuilder(Math.min(value.length(), 160));
-        value.codePoints().filter(codePoint -> !Character.isISOControl(codePoint))
-                .limit(160).forEach(result::appendCodePoint);
-        return result.toString();
     }
 
     private enum Phase { INPUT, CONFIRM, PROCESSING }

@@ -56,11 +56,6 @@ public final class PlayerOperationQueue implements AutoCloseable {
         return result;
     }
 
-    public int activePlayers() {
-        synchronized (monitor) {
-            return tails.size();
-        }
-    }
 
     public boolean closed() {
         synchronized (monitor) {

@@ -9,12 +9,10 @@ import dev.xiaomu.crown.storage.model.CardRedemptionResult;
 import dev.xiaomu.crown.storage.model.CoinAdjustmentResult;
 import dev.xiaomu.crown.storage.model.InternalPaymentResult;
 import dev.xiaomu.crown.storage.model.OrderPreparationStatus;
-import dev.xiaomu.crown.storage.model.OwnedTitleDurationStatus;
 import dev.xiaomu.crown.storage.model.OwnedTitleRecord;
 import dev.xiaomu.crown.storage.model.PlayerRecord;
 import dev.xiaomu.crown.storage.model.PurchaseOrderRecord;
 import dev.xiaomu.crown.storage.model.SaleCounterRecord;
-import dev.xiaomu.crown.storage.model.StorageSummary;
 import dev.xiaomu.crown.storage.model.TitleCoinLedgerRecord;
 
 import java.time.Instant;
@@ -24,6 +22,14 @@ import java.util.UUID;
 
 /** SQLite/MySQL 共用的同步 Repository 契约。 */
 public interface CrownRepository extends AutoCloseable {
+    long deletionRefund(UUID playerId, UUID entryId,
+            dev.xiaomu.crown.config.model.CoreSettings.Deletion settings, Instant now);
+
+    dev.xiaomu.crown.storage.model.TitleDeletionResult deleteOwnedTitle(
+            UUID playerId, UUID entryId, String actor,
+            dev.xiaomu.crown.config.model.CoreSettings.Deletion settings,
+            long maximumBalance, Instant now);
+
     int initializeSchema();
 
     PlayerRecord ensurePlayer(
@@ -49,27 +55,6 @@ public interface CrownRepository extends AutoCloseable {
     Optional<OwnedTitleRecord> findOwnedTitle(UUID entryId);
 
     boolean insertOwnedTitle(OwnedTitleRecord title);
-
-    /**
-     * 原子创建仓库条目并写入审计。条目 ID 已存在时返回 false 且不写审计。
-     */
-    boolean insertOwnedTitleWithAudit(
-            OwnedTitleRecord title,
-            AuditRecord audit
-    );
-
-    /**
-     * 原子修改有效仓库条目的到期时间并写入审计。
-     *
-     * @param expiresAt 新到期时间；null 表示永久
-     */
-    OwnedTitleDurationStatus updateOwnedTitleDurationWithAudit(
-            UUID playerId,
-            UUID entryId,
-            Instant expiresAt,
-            AuditRecord audit,
-            Instant now
-    );
 
     boolean softDeleteOwnedTitle(
             UUID playerId,
@@ -100,7 +85,8 @@ public interface CrownRepository extends AutoCloseable {
     OrderPreparationStatus prepareOrder(
             PurchaseOrderRecord order,
             long globalStock,
-            int perPlayerLimit
+            int perPlayerLimit,
+            int maximumOwnedTitles
     );
 
     /**
@@ -176,14 +162,6 @@ public interface CrownRepository extends AutoCloseable {
 
     boolean createCard(CardRecord card);
 
-    /**
-     * 原子创建一批称号卡并写入一条审计。任一 token 冲突时整个批次回滚。
-     */
-    List<CardRecord> createCardsWithAudit(
-            List<CardRecord> cards,
-            AuditRecord audit
-    );
-
     Optional<CardRecord> findCard(String cardToken);
 
     /**
@@ -205,6 +183,7 @@ public interface CrownRepository extends AutoCloseable {
             UUID playerId,
             OwnedTitleRecord title,
             AuditRecord audit,
+            int maximumOwnedTitles,
             Instant now
     );
 
@@ -214,8 +193,6 @@ public interface CrownRepository extends AutoCloseable {
             String targetId,
             int limit
     );
-
-    StorageSummary summarize();
 
     @Override
     void close();

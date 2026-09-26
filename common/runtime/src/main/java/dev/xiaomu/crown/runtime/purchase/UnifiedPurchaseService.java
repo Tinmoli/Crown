@@ -207,9 +207,10 @@ public final class UnifiedPurchaseService {
         return storage.submit(() -> repository.prepareOrder(
                         order,
                         request.globalStock(),
-                        request.perPlayerLimit()))
+                        request.perPlayerLimit(), request.settings().maximumOwnedTitlesPerPlayer()))
                 .thenCompose(status -> switch (status) {
                     case CREATED -> continueOrder(order, false);
+                    case WAREHOUSE_FULL -> completed(PurchaseResult.of(PurchaseStatus.WAREHOUSE_FULL, order.orderId()));
                     case ORDER_ALREADY_EXISTS ->
                             storage.submit(() -> repository.findOrder(
                                             order.orderId()))

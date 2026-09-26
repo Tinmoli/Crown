@@ -13,14 +13,9 @@ import dev.xiaomu.crown.storage.async.AsyncStorageExecutor;
 import dev.xiaomu.crown.storage.async.AsyncStorageExecutorFactory;
 import dev.xiaomu.crown.storage.backend.StorageBackend;
 import dev.xiaomu.crown.storage.backend.StorageBackendFactory;
-import dev.xiaomu.crown.storage.migration.JdbcStorageMigrator;
-import dev.xiaomu.crown.storage.migration.StorageMigrationReport;
-import dev.xiaomu.crown.storage.model.AuditRecord;
-import dev.xiaomu.crown.storage.snapshot.SqliteSnapshotManager;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.time.Instant;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -38,10 +33,6 @@ public final class CrownRuntime implements AutoCloseable {
     private final StorageBackendFactory backendFactory;
     private final AsyncStorageExecutorFactory executorFactory;
     private final Path gameDirectory;
-    private final JdbcStorageMigrator storageMigrator =
-            new JdbcStorageMigrator();
-    private final SqliteSnapshotManager snapshotManager =
-            new SqliteSnapshotManager();
     private final AtomicReference<Active> active = new AtomicReference<>();
     private final Object reloadMonitor = new Object();
     private CompletableFuture<ConfigurationLoadReport> reloadInFlight;
@@ -95,11 +86,7 @@ public final class CrownRuntime implements AutoCloseable {
      * 拒绝在有购买操作运行时切换存储。
      */
     public synchronized ConfigurationLoadReport reload() throws IOException {
-        Active current = require();
-        if (current.executor.maintenance()) {
-            throw new IOException(
-                    "Crown storage maintenance is running");
-        }
+        require();
         StorageSettings storage = snapshot().storage();
         return snapshots.reload(candidate -> {
             if (!storage.equals(candidate.storage())) {
@@ -173,118 +160,6 @@ public final class CrownRuntime implements AutoCloseable {
     /** 返回 Crown 配置根目录，供受控配置编辑服务定位配置文件。 */
     public Path configRoot() {
         return snapshots.configRoot();
-    }
-
-    /** 当前后端执行兼容 Schema 初始化/升级，全程位于独占维护模式。 */
-    public CompletableFuture<Integer> migrateSchema(String actor) {
-        Objects.requireNonNull(actor, "actor");
-        Active current = require();
-        StorageSettings settings = snapshot().storage();
-        return current.executor.submitMaintenance(() -> {
-            Instant startedAt = Instant.now();
-            Path backup = snapshotSqliteIfConfigured(
-                    current.backend, settings, startedAt);
-            int version = current.backend.repository().initializeSchema();
-            String details = "{\"backend\":\""
-                    + current.backend.type().name().toLowerCase(
-                            java.util.Locale.ROOT)
-                    + "\",\"schemaVersion\":" + version
-                    + ",\"snapshot\":\""
-                    + json(backup == null ? "" : backup.toString())
-                    + "\"}";
-            current.backend.repository().appendAudit(new AuditRecord(
-                    0, actor, "admin_storage_migrate_schema",
-                    null, "schema", details, Instant.now()));
-            return version;
-        });
-    }
-
-    /**
-     * 将当前后端完整复制到 storage.yml 中指定类型的空目标。成功后不会自动
-     * 切换；管理员仍需修改 type 并重载或重启。
-     */
-    public CompletableFuture<StorageMigrationReport> migrateStorage(
-            StorageSettings.Type targetType,
-            String actor
-    ) {
-        Objects.requireNonNull(targetType, "targetType");
-        Objects.requireNonNull(actor, "actor");
-        Active current = require();
-        if (current.backend.type() == targetType) {
-            return CompletableFuture.failedFuture(
-                    new IllegalArgumentException(
-                            "Target storage is already active"));
-        }
-        StorageSettings settings = snapshot().storage();
-        return current.executor.submitMaintenance(() -> {
-            Instant startedAt = Instant.now();
-            Path backup = snapshotSqliteIfConfigured(
-                    current.backend, settings, startedAt);
-            try (StorageBackend target = backendFactory.open(
-                    gameDirectory, settings, targetType)) {
-                StorageMigrationReport report = storageMigrator.migrate(
-                        current.backend,
-                        target,
-                        settings.migration().verification(),
-                        startedAt);
-                String details = "{\"source\":\""
-                        + report.sourceType().name().toLowerCase(
-                                java.util.Locale.ROOT)
-                        + "\",\"target\":\""
-                        + report.targetType().name().toLowerCase(
-                                java.util.Locale.ROOT)
-                        + "\",\"copiedRows\":"
-                        + report.totalCopiedRows()
-                        + ",\"durationMillis\":"
-                        + report.duration().toMillis()
-                        + ",\"snapshot\":\""
-                        + json(backup == null ? "" : backup.toString())
-                        + "\"}";
-                current.backend.repository().appendAudit(new AuditRecord(
-                        0, actor, "admin_storage_migrate_backend",
-                        null,
-                        report.sourceType().name().toLowerCase(
-                                java.util.Locale.ROOT)
-                                + "-to-"
-                                + report.targetType().name().toLowerCase(
-                                        java.util.Locale.ROOT),
-                        details,
-                        Instant.now()));
-                return report;
-            }
-        });
-    }
-
-    public boolean storageMaintenance() {
-        return require().executor.maintenance();
-    }
-
-    private Path snapshotSqliteIfConfigured(
-            StorageBackend backend,
-            StorageSettings settings,
-            Instant now
-    ) {
-        if (backend.type() != StorageSettings.Type.SQLITE
-                || !settings.sqlite().snapshotBeforeMigration()) {
-            return null;
-        }
-        Path database = backend.sqliteDatabase().orElseThrow();
-        Path parent = database.getParent();
-        if (parent == null) {
-            throw new IllegalStateException(
-                    "SQLite database has no parent directory");
-        }
-        return snapshotManager.create(
-                database,
-                backend.connections(),
-                parent.resolve("snapshots"),
-                settings.sqlite().maximumSnapshots(),
-                now);
-    }
-
-    private static String json(String value) {
-        return value.replace("\\", "\\\\")
-                .replace("\"", "\\\"");
     }
 
     public boolean started() {

@@ -15,7 +15,7 @@ import dev.xiaomu.crown.runtime.purchase.PurchaseResult;
 import dev.xiaomu.crown.runtime.purchase.PurchaseStatus;
 import eu.pb4.sgui.api.ClickType;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
-import eu.pb4.sgui.api.gui.SimpleGui;
+
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.MenuType;
 
@@ -24,14 +24,14 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Crown 普通称号购买确认 GUI（DESIGN.md §16）。
+ * Crown 普通称号购买确认 GUI。
  *
  * <p>展示价格、有效期与描述；确认后调用 {@link
  * dev.xiaomu.crown.runtime.purchase.UnifiedPurchaseService} 走完整异步
  * 购买状态机，扣款由内部称号币账本完成。点击确认后立即锁定按钮，
  * 结果切回主线程反馈并刷新称号缓存。</p>
  */
-public final class CrownPurchaseConfirmGui extends SimpleGui {
+public final class CrownPurchaseConfirmGui extends CrownGui {
     private final CrownServerContext context;
     private final TitleDefinition definition;
     private final GuiLayout layout;
@@ -44,7 +44,7 @@ public final class CrownPurchaseConfirmGui extends SimpleGui {
             TitleDefinition definition,
             GuiLayout layout
     ) {
-        super(type, player, false);
+        super(context, type, player);
         this.context = context;
         this.definition = definition;
         this.layout = layout;
@@ -102,8 +102,7 @@ public final class CrownPurchaseConfirmGui extends SimpleGui {
 
         for (GuiButton button : layout.buttons().values()) {
 
-            if (processing && ("confirm".equals(button.action())
-                    || "pay-title-coin".equals(button.action()))) {
+            if (processing && "confirm".equals(button.action())) {
                 continue;
             }
             if (!processing && "processing".equals(button.action())) {
@@ -124,7 +123,7 @@ public final class CrownPurchaseConfirmGui extends SimpleGui {
         switch (action) {
             case "cancel" -> close();
             case "confirm" -> confirm();
-            case "pay-title-coin" -> confirm();
+
             default -> {
                 // preview / processing / 未知动作忽略。
             }
@@ -189,9 +188,8 @@ public final class CrownPurchaseConfirmGui extends SimpleGui {
                             context, player),
                     failure -> player.sendSystemMessage(context.messages()
                             .render("purchase.failed.storage")));
-            player.sendSystemMessage(context.messages().render(
-                    "purchase.success",
-                    GuiFormatting.previewSource(definition.content())));
+            player.sendSystemMessage(context.messages().renderTitle(
+                    "purchase.success", definition.content().fullText()));
         } else {
             player.sendSystemMessage(resultMessage(result));
         }
@@ -210,6 +208,7 @@ public final class CrownPurchaseConfirmGui extends SimpleGui {
         CrownMessages messages = context.messages();
         var languages = context.runtime().snapshot().languages();
         return switch (result.status()) {
+            case WAREHOUSE_FULL -> context.messages().render("purchase.warehouse-full");
             case INSUFFICIENT_FUNDS ->
                     messages.render("purchase.failed.balance",
                             GuiFormatting.priceText(definition.payment(), layout.textValues()),
@@ -228,10 +227,8 @@ public final class CrownPurchaseConfirmGui extends SimpleGui {
                     messages.render("purchase.processing");
             case ORDER_CONFLICT, INVALID_STATE ->
                     messages.render("purchase.failed.storage");
-            case GRANTED ->
-                    messages.render("purchase.success",
-                            GuiFormatting.previewSource(
-                                    definition.content()));
+            case GRANTED -> messages.renderTitle(
+                    "purchase.success", definition.content().fullText());
         };
     }
 

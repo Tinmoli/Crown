@@ -21,8 +21,8 @@ public record CoreSettings(
         Display display,
         PermissionFallback permissions,
         Purchase purchase,
-        Safety safety,
-        Commands commands
+        Deletion deletion,
+        Safety safety
 ) {
     public CoreSettings {
         language = requireLanguage(language);
@@ -33,8 +33,8 @@ public record CoreSettings(
         display = Objects.requireNonNull(display, "display");
         permissions = Objects.requireNonNull(permissions, "permissions");
         purchase = Objects.requireNonNull(purchase, "purchase");
+        deletion = Objects.requireNonNull(deletion, "deletion");
         safety = Objects.requireNonNull(safety, "safety");
-        commands = Objects.requireNonNull(commands, "commands");
     }
 
     private static String requireLanguage(String value) {
@@ -136,6 +136,23 @@ public record CoreSettings(
                     maximumSourceLength,
                     maximumLength);
         }
+
+        /** Compare visible text, ignoring formatting, case, width and invisible format characters. */
+        public boolean rejectsTitle(StyledText text, boolean operator) {
+            if (operator) return false;
+            String visible = normalizeForFilter(text.plainText());
+            return forbiddenWords.stream().map(CustomTitle::normalizeForFilter)
+                    .filter(word -> !word.isEmpty()).anyMatch(visible::contains);
+        }
+
+        private static String normalizeForFilter(String text) {
+            String normalized = java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFKC)
+                    .toLowerCase(java.util.Locale.ROOT);
+            var result = new StringBuilder();
+            normalized.codePoints().filter(cp -> Character.getType(cp) != Character.FORMAT)
+                    .forEach(result::appendCodePoint);
+            return result.toString();
+        }
     }
 
     public record Display(
@@ -216,13 +233,28 @@ public record CoreSettings(
         }
     }
 
-    public record Purchase(int maximumPendingOrdersPerPlayer) {
+    public record Purchase(int maximumPendingOrdersPerPlayer, int maximumOwnedTitlesPerPlayer) {
         public Purchase {
+            if (maximumOwnedTitlesPerPlayer < -1) throw new IllegalArgumentException("Invalid warehouse limit");
             if (maximumPendingOrdersPerPlayer < 1 || maximumPendingOrdersPerPlayer > 10) {
                 throw new IllegalArgumentException("Pending order limit must be between 1 and 10");
             }
         }
     }
+    public record Deletion(boolean refundEnabled, int refundPercent, boolean refundExpired) {
+        public Deletion {
+            if (refundPercent < 0 || refundPercent > 100)
+                throw new IllegalArgumentException("Refund percent must be 0..100");
+        }
+
+        public long refund(long paid, boolean expired) {
+            if (!refundEnabled || (expired && !refundExpired)) return 0;
+            return java.math.BigInteger.valueOf(paid).multiply(
+                    java.math.BigInteger.valueOf(refundPercent)).divide(
+                    java.math.BigInteger.valueOf(100)).longValueExact();
+        }
+    }
+
     public record Safety(
             int maximumTitleSourceLength,
             int maximumVisibleTitleLength,
@@ -253,8 +285,6 @@ public record CoreSettings(
         }
     }
 
-    public record Commands(boolean titleAliasEnabled) {
-    }
 
     private static List<String> normalizedWords(
             List<String> values,

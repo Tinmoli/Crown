@@ -8,7 +8,6 @@ import dev.xiaomu.crown.fabric.custom.AdminTitleDraftSessions;
 import dev.xiaomu.crown.fabric.custom.AdminTitlePaymentEditSessions;
 import dev.xiaomu.crown.fabric.custom.AdminTitleSaleEditSessions;
 import dev.xiaomu.crown.fabric.custom.AdminTitleTextEditSessions;
-import dev.xiaomu.crown.fabric.custom.CustomTitleInputSessions;
 import dev.xiaomu.crown.fabric.custom.PlayerCustomTitleSessions;
 import dev.xiaomu.crown.fabric.display.CrownChatDisplay;
 import dev.xiaomu.crown.fabric.display.CrownNametagDisplay;
@@ -39,7 +38,7 @@ import java.nio.file.Path;
  * <p>实际运行时由公共 runtime 模块提供；版本目录只负责 Minecraft/Fabric
  * API 适配。购买统一使用内置称号币。</p>
  *
- * <p>生命周期严格绑定到服务端事件：SERVER_STARTING 装配 {@link CrownRuntime}，
+ * <p>生命周期严格绑定到服务端事件：SERVER_STARTED 装配 {@link CrownRuntime}，
  * SERVER_STOPPED 优雅关闭。装配失败直接抛出，阻止服务端在半初始化状态运行。</p>
  */
 public final class CrownFabricMod implements DedicatedServerModInitializer {
@@ -60,20 +59,18 @@ public final class CrownFabricMod implements DedicatedServerModInitializer {
         commandContext = CrownServerContext.deferred(() -> context);
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess,
                                                      environment) ->
-                CrownCommandTree.register(dispatcher, commandContext, false));
-        ServerLifecycleEvents.SERVER_STARTING.register(this::startRuntime);
+                CrownCommandTree.register(dispatcher, commandContext));
+        // 玩家列表、世界和命令分发器均就绪后，才安装需要它们的服务。
+        ServerLifecycleEvents.SERVER_STARTED.register(this::startRuntime);
         ServerLifecycleEvents.SERVER_STOPPED.register(this::stopRuntime);
         ServerPlayConnectionEvents.JOIN.register(
                 (handler, sender, server) -> {
                     preloadPlayer(handler.getPlayer());
-                    // Commands are registered during SERVER_STARTING. Sync the
-                    // completed dispatcher when a player actually joins.
+                    // 登录时同步当前玩家可使用的命令。
                     server.getCommands().sendCommands(handler.getPlayer());
                 });
         ServerPlayConnectionEvents.DISCONNECT.register(
                 (handler, server) -> {
-                    CustomTitleInputSessions.disconnect(
-                            handler.getPlayer().getUUID());
                     AdminTitleDraftSessions.disconnect(
                             handler.getPlayer().getUUID());
                     AdminTitleTextEditSessions.disconnect(
@@ -97,9 +94,7 @@ public final class CrownFabricMod implements DedicatedServerModInitializer {
                     CrownServerContext current = context;
                     if (current == null) return true;
                     String content = message.signedContent();
-                    return CustomTitleInputSessions.handleChat(
-                            current, player, content)
-                            && AdminTitleDraftSessions.handleChat(
+                    return AdminTitleDraftSessions.handleChat(
                                     current, player, content)
                             && AdminTitleTextEditSessions.handleChat(
                                     current, player, content)
@@ -117,7 +112,6 @@ public final class CrownFabricMod implements DedicatedServerModInitializer {
                     recoveryTicks = 0;
                     recoverPurchases(current);
                 }
-                CustomTitleInputSessions.expire(current);
                 AdminTitleDraftSessions.expire(current);
                 AdminTitleTextEditSessions.expire(current);
                 AdminTitlePaymentEditSessions.expire(current);
@@ -175,7 +169,8 @@ public final class CrownFabricMod implements DedicatedServerModInitializer {
             var crownCommand = server.getCommands().getDispatcher()
                     .getRoot().getChild("crown");
             String[] requiredCommands = {
-                    "reload", "title", "view", "storage", "audit"
+                    "help", "warehouse", "shop", "custom", "balance",
+                    "reload", "title", "give", "take", "set", "look"
             };
             String missing = crownCommand == null
                     ? "crown"
@@ -185,12 +180,6 @@ public final class CrownFabricMod implements DedicatedServerModInitializer {
             if (missing != null) {
                 throw new IllegalStateException(
                         "Crown command registration missing /crown " + missing);
-            }
-            if (context.core().commands().titleAliasEnabled()
-                    && server.getCommands().getDispatcher().getRoot()
-                    .getChild("title") == null) {
-                CrownCommandTree.registerAlias(
-                        server.getCommands().getDispatcher(), context);
             }
             for (ServerPlayer online : server.getPlayerList().getPlayers()) {
                 server.getCommands().sendCommands(online);
@@ -211,7 +200,7 @@ public final class CrownFabricMod implements DedicatedServerModInitializer {
     }
 
     private void recoverPurchases(CrownServerContext current) {
-        if (recoveryRunning || current.runtime().storageMaintenance()) return;
+        if (recoveryRunning) return;
         recoveryRunning = true;
         current.mainThread().whenComplete(current.runtime().purchaseService().recover(100), report -> {
             recoveryRunning = false;

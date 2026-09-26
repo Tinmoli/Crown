@@ -16,8 +16,7 @@ public record GuiLayouts(Map<String, GuiLayout> layouts) {
             "purchase-confirm",
             "custom-confirm",
             "delete-confirm",
-            "admin-shop",
-            "admin-warehouse"
+            "admin-shop"
     );
 
     public GuiLayouts {

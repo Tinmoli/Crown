@@ -33,6 +33,7 @@ buttons:
     name: "&f上一页"
     lore:
       - "&7第 {page}/{pages} 页"
+      - "&7仓库容量：{owned_count}/{owned_limit}"
   default:
     slot: 46
     item: "minecraft:name_tag"
@@ -61,6 +62,7 @@ buttons:
     name: "&f下一页"
     lore:
       - "&7第 {page}/{pages} 页"
+      - "&7仓库容量：{owned_count}/{owned_limit}"
 
 title-items:
   active:
@@ -80,6 +82,11 @@ title-items:
     name: "{title_preview}"
     glow: true
     lore:
+      - "&7条目：{entry_id}"
+      - "&7来源：{source}"
+      - "&7获取：{acquired_at}"
+      - "&7到期：{expires}"
+      - ""
       - "&a当前佩戴中"
       - "&c右键删除"
   expired:
@@ -87,5 +94,10 @@ title-items:
     name: "{title_preview}"
     glow: false
     lore:
+      - "&7条目：{entry_id}"
+      - "&7来源：{source}"
+      - "&7获取：{acquired_at}"
+      - "&7到期：{expires}"
+      - ""
       - "&c已过期"
       - "&c右键删除"

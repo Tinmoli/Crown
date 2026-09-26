@@ -7,28 +7,24 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.util.Arrays;
+
+
+
 import java.util.Objects;
 import java.util.UUID;
 
-/**
- * 26.x 权限桥。通过反射调用 fabric-permissions-api，避免其发布 JAR 中
- * intermediary 参数类型污染 Mojang-mapped 编译源；API 本身仍作为内嵌依赖。
- */
+/** 26.x 权限桥：玩家优先使用可选 LuckPerms API，未安装时使用原版权限。 */
 public final class FabricPermissionService implements PermissionService {
-    private static final String PERMISSIONS_CLASS =
-            "me.lucko.fabric.api.permissions.v0.Permissions";
+
 
     private final MinecraftServer server;
-    private final boolean permissionsApiLoaded;
+
     private final boolean luckPermsLoaded;
 
     public FabricPermissionService(MinecraftServer server) {
         this.server = Objects.requireNonNull(server, "server");
         FabricLoader loader = FabricLoader.getInstance();
-        permissionsApiLoaded = loader.isModLoaded("fabric-permissions-api-v0");
+
         luckPermsLoaded = loader.isModLoaded("luckperms");
     }
 
@@ -68,91 +64,47 @@ public final class FabricPermissionService implements PermissionService {
             int fallbackOpLevel
     ) {
         Objects.requireNonNull(node, "node");
-        if (!permissionsApiLoaded) {
+        if (!source.isPlayer() || !luckPermsLoaded) {
             return hasOpLevel(source, fallbackOpLevel);
         }
         try {
-            Class<?> api = Class.forName(PERMISSIONS_CLASS);
-            Method check = Arrays.stream(api.getMethods())
-                    .filter(method -> method.getName().equals("check"))
-                    .filter(method -> method.getParameterCount() == 3)
-                    .filter(method -> method.getParameterTypes()[0]
-                            .isInstance(source))
-                    .filter(method -> method.getParameterTypes()[1]
-                            == String.class)
-                    .filter(method -> method.getParameterTypes()[2]
-                            == int.class)
-                    .findFirst()
-                    .orElseThrow(() -> new NoSuchMethodException(
-                            "Compatible Permissions.check overload missing"));
-            return (boolean) check.invoke(
-                    null, source, node, fallbackOpLevel);
-        } catch (ClassNotFoundException
-                 | NoSuchMethodException
-                 | IllegalAccessException
-                 | InvocationTargetException
-                 | LinkageError exception) {
-            // LuckPerms 已加载但查询链异常时必须 fail closed，不能借 OP 绕过。
-            return !luckPermsLoaded
-                    && hasOpLevel(source, fallbackOpLevel);
+            Object api = Class.forName("net.luckperms.api.LuckPermsProvider")
+                    .getMethod("get").invoke(null);
+            Object manager = Class.forName("net.luckperms.api.LuckPerms")
+                    .getMethod("getUserManager").invoke(api);
+            Object user = Class.forName("net.luckperms.api.model.user.UserManager")
+                    .getMethod("getUser", UUID.class).invoke(manager, source.getPlayer().getUUID());
+            if (user == null) return false;
+            Object cache = Class.forName("net.luckperms.api.model.PermissionHolder")
+                    .getMethod("getCachedData").invoke(user);
+            Object permissions = Class.forName("net.luckperms.api.cacheddata.CachedDataManager")
+                    .getMethod("getPermissionData").invoke(cache);
+            Object result = Class.forName("net.luckperms.api.cacheddata.CachedPermissionData")
+                    .getMethod("checkPermission", String.class).invoke(permissions, node);
+            return switch (((Enum<?>) result).name()) {
+                case "TRUE" -> true;
+                case "FALSE" -> false;
+                // 普通玩家入口默认开放；管理员与商品权限必须由 LP 授权。
+                case "UNDEFINED" -> fallbackOpLevel == 0 && node.startsWith("crown.command.");
+                default -> false;
+            };
+        } catch (ReflectiveOperationException | LinkageError | ClassCastException exception) {
+            // LP 存在但不可用时拒绝授权，不能通过 OP 绕过。
+            return false;
         }
     }
-
     private static boolean hasOpLevel(
             CommandSourceStack source,
             int requiredLevel
     ) {
-        if (requiredLevel < 0 || requiredLevel > 4) {
-            return false;
-        }
-        // 26.x 原版 OP 判定各版本方法名/类名不稳定，统一走反射：
-        // 优先 CommandSourceStack.hasPermission(int)；
-        // 不存在则回退 permissions().hasPermission(OpPermission.of(int))。
-        Boolean direct = tryDirectHasPermission(source, requiredLevel);
-        if (direct != null) {
-            return direct;
-        }
-        Boolean viaPermissionSet =
-                tryPermissionSet(source, requiredLevel);
-        // 反射都失败时对等级 0 放行，保证基础命令可用。
-        return viaPermissionSet != null
-                ? viaPermissionSet
-                : requiredLevel == 0;
+        return switch (requiredLevel) {
+            case 0 -> true;
+            case 1 -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_MODERATOR);
+            case 2 -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER);
+            case 3 -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_ADMIN);
+            case 4 -> source.permissions().hasPermission(net.minecraft.server.permissions.Permissions.COMMANDS_OWNER);
+            default -> false;
+        };
     }
 
-    private static Boolean tryDirectHasPermission(
-            CommandSourceStack source,
-            int requiredLevel
-    ) {
-        try {
-            Method method = CommandSourceStack.class
-                    .getMethod("hasPermission", int.class);
-            return (boolean) method.invoke(source, requiredLevel);
-        } catch (ReflectiveOperationException | LinkageError ignored) {
-            return null;
-        }
-    }
-
-    private static Boolean tryPermissionSet(
-            CommandSourceStack source,
-            int requiredLevel
-    ) {
-        try {
-            Method permissionsMethod =
-                    CommandSourceStack.class.getMethod("permissions");
-            Object permissionSet = permissionsMethod.invoke(source);
-            Class<?> opPerm = Class.forName(
-                    "net.minecraft.server.permissions.OpPermission");
-            Method of = opPerm.getMethod("of", int.class);
-            Object permission = of.invoke(null, requiredLevel);
-            Class<?> permissionType = Class.forName(
-                    "net.minecraft.server.permissions.Permission");
-            Method hasPermission = permissionSet.getClass()
-                    .getMethod("hasPermission", permissionType);
-            return (boolean) hasPermission.invoke(
-                    permissionSet, permission);
-        } catch (ReflectiveOperationException | LinkageError ignored) {
-            return null;
-        }
-    }
 }

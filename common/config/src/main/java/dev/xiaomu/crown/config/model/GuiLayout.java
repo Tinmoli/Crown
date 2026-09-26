@@ -45,6 +45,26 @@ public record GuiLayout(
         itemVariants = immutableItems(itemVariants);
         textValues = immutableTextValues(textValues);
 
+        Set<String> actions = switch (id) {
+            case "main" -> Set.of("shop", "warehouse", "custom", "close");
+            case "shop" -> Set.of("previous", "next", "custom", "warehouse", "close");
+            case "warehouse" -> Set.of("previous", "next", "default", "none", "shop", "close");
+            case "admin-shop" -> Set.of("previous", "next", "create", "reload", "close");
+            case "purchase-confirm" -> Set.of("preview", "confirm", "cancel", "processing");
+            case "custom-confirm" -> Set.of("preview", "confirm", "reenter", "cancel", "processing");
+            case "delete-confirm" -> Set.of("preview", "confirm", "cancel");
+            default -> buttons.keySet();
+        };
+        for (String action : buttons.keySet()) {
+            if (!actions.contains(action)) {
+                throw new IllegalArgumentException("Unsupported GUI action: " + id + "." + action);
+            }
+        }
+        if (Set.of("shop", "warehouse", "admin-shop").contains(id)
+                && contentSlots.isEmpty()) {
+            throw new IllegalArgumentException("GUI content slots are empty: " + id);
+        }
+
         var occupied = new LinkedHashMap<Integer, String>();
         for (GuiButton button : buttons.values()) {
             requireSlot(button.slot(), screenType.slotCount(), "button");
@@ -133,7 +153,6 @@ public record GuiLayout(
 
     private static boolean allowedOverlay(String left, String right) {
         Set<String> pair = Set.of(left, right);
-        return pair.equals(Set.of("confirm", "processing"))
-                || pair.equals(Set.of("pay-title-coin", "processing"));
+        return pair.equals(Set.of("confirm", "processing"));
     }
 }
