@@ -1,86 +1,71 @@
 # Crown
 
-Crown 是 Fabric 服务端称号商城模组。玩家使用箱子菜单购买、自定义和佩戴称号，普通客户端无需安装 Crown。
+Crown is a server-side title shop and title warehouse mod for Fabric. Players use chest GUIs to browse, buy, customize, equip, and remove titles. Clients do not need to install Crown.
 
-所有购买使用内置称号币，由管理员通过命令发放。支持限时称号、仓库容量限制、删除退款、颜色与渐变，以及 LuckPerms 权限和 Text Placeholder API 变量。
+All purchases use Crown's built-in title coins. Administrators grant coins with commands. Crown also supports timed titles, warehouse limits, deletion refunds, RGB colors, gradients, LuckPerms, and Text Placeholder API.
 
-## 安装
+中文说明：[README_zh.md](README_zh.md)
 
-1. 使用 Java 25、Fabric Loader 0.19.3 或更高版本，以及对应 Minecraft 版本的 Fabric API。
-2. 将匹配服务端版本的 Crown JAR 放入 `mods`：支持 26.1、26.1.1、26.1.2、26.2，版本包不可混用。
-3. 启动服务端，在 `config/crown/` 中生成配置。默认使用 SQLite，无需另装数据库或经济模组。
-4. 按需安装服务端 LuckPerms 和 Text Placeholder API；SGUI、颜色解析库及数据库驱动已经包含在 Crown 中。
-5. 配置称号显示。默认交给外部模组读取变量；只想使用 Crown 直接显示时，在 `config.yml` 中设置：
+## Installation
+
+1. Use Java 25, Fabric Loader 0.19.3 or newer, and the matching Fabric API.
+2. Put the JAR matching your Minecraft version in the server's `mods` directory. Supported versions are 26.1, 26.1.1, 26.1.2, and 26.2.
+3. Start the server once. Crown creates `config/crown/` and uses SQLite by default.
+4. LuckPerms and Text Placeholder API are optional integrations. GUI and database libraries are bundled.
+5. Configure title display. The default mode provides variables to other mods. To let Crown display titles directly, set the channels to `vanilla` in `config.yml`.
+
+## Commands
+
+Run these commands in game with `/`; remove `/` in the server console.
+
+| Command | Purpose |
+|---|---|
+| `/crown` | Open the main menu |
+| `/crown help` | Show commands available to the sender |
+| `/crown shop` | Open the title shop |
+| `/crown warehouse` | Open the title warehouse |
+| `/crown custom` | Create a custom title |
+| `/crown balance` | Check your title coins |
+| `/crown give <player> <amount>` | Grant title coins |
+| `/crown take <player> <amount>` | Remove title coins, down to zero |
+| `/crown set <player> <amount>` | Set a player's balance |
+| `/crown look <player>` | View another player's balance |
+| `/crown title` | Open the administrator product menu |
+| `/crown reload` | Reload language, products, and GUI settings |
+
+Players buy and equip titles through the GUI. There are no `/buy`, `/equip`, `/coin`, or legacy storage commands.
+
+## Product setup
+
+Products are stored in `config/crown/titles.yml`:
 
 ```yaml
-display:
-  channels:
-    chat: "vanilla"
-    tab: "vanilla"
-    nametag: "vanilla"
+titles:
+  champion:
+    enabled: true
+    visible: true
+    text: "<gradient:#FFAA00:#FFFF55>Champion</gradient>"
+    prefix: "&7["
+    suffix: "&7]"
+    icon: "minecraft:golden_helmet"
+    description:
+      - "&7Event title"
+    price: 50
+    duration:
+      days: 30
+    requirement:
+      permission: "crown.title.champion"
+      deny-if-missing-permission: true
+    sale:
+      global-stock: 100
+      per-player-limit: 1
 ```
 
-修改后执行 `/crown reload`。使用 TAB 等外部模组时，参阅[称号显示与颜色](DISPLAY.md)。
+Omit `duration` for a permanent title. Use `-1` for unlimited stock or purchase limits. A purchased title keeps the text, prefix, suffix, price basis, and expiry snapshot from the time of purchase.
 
-## 第一次使用
+## Warehouse limit and refunds
 
-管理员执行 `/crown give 玩家名 100` 发放称号币。玩家输入 `/crown` 打开主菜单：
-
-- **商城**：选择称号，核对价格和有效期，再确认购买。
-- **仓库**：左键佩戴、右键进入删除确认；也可以使用默认称号或不显示称号。
-- **自定义称号**：在聊天栏输入正文，预览后确认购买。输入 `取消` 或 `cancel` 退出。
-
-安装 LuckPerms 后，即使是 OP 也需要授予 Crown 管理权限，例如：
-
-```text
-/lp user 玩家名 permission set crown.admin.* true
-/lp group default permission set crown.shop.custom.color true
-```
-
-第一条授予管理员权限，第二条允许普通玩家使用彩色自定义称号。完整说明见[权限与 LuckPerms](PERMISSIONS.md)。
-
-## 命令
-
-游戏内带 `/`，控制台去掉 `/`。控制台可以执行币管理和重载，GUI 必须由游戏内玩家打开。
-
-| 命令 | 用途 |
-|---|---|
-| `/crown` | 主菜单 |
-| `/crown help` | 显示有权使用的命令 |
-| `/crown shop` | 称号商城 |
-| `/crown warehouse` | 称号仓库 |
-| `/crown custom` | 自定义称号 |
-| `/crown balance` | 自己的称号币余额 |
-| `/crown give <玩家> <数量>` | 管理员发币 |
-| `/crown take <玩家> <数量>` | 管理员扣币，最多扣到零 |
-| `/crown set <玩家> <数量>` | 管理员设置余额 |
-| `/crown look <玩家>` | 管理员查看余额 |
-| `/crown title` | 商品管理菜单 |
-| `/crown reload` | 重载配置、语言和菜单 |
-
-数量为非负整数。玩家之间不能转账。购买、佩戴、删除和商品编辑通过菜单完成。
-
-## 管理商品
-
-输入 `/crown title`，创建商品草稿或选择商品编辑。草稿默认禁用，设置正文、图标、价格和期限后再启用。
-
-菜单会提示聊天输入格式，例如：
-
-```text
-text=<gold>活动冠军</gold>
-prefix=&7[
-suffix=&7]
-price=50
-duration=limited:30
-stock=100
-limit=1
-```
-
-永久期限使用 `duration=permanent`，无限库存或不限购使用 `stock=unlimited`、`limit=unlimited`。也可直接编辑 `titles.yml`，详见[配置说明](CONFIGURATION.md)。
-
-## 仓库上限与删除退款
-
-`config.yml`：
+Add these settings to `config.yml`:
 
 ```yaml
 purchase:
@@ -93,41 +78,51 @@ deletion:
   refund-expired: false
 ```
 
-示例限制每名玩家最多持有 20 个条目。默认上限为 `-1`（不限），`0` 表示禁止新增。普通、自定义及称号卡条目共用名额；已过期但未删除的条目仍占名额，默认称号不占。满仓时拒绝新增，不扣币。
+Normal titles, custom titles, and redeemed title cards share the same warehouse limit. Expired entries still occupy a slot until deleted; the server default title does not. A full warehouse rejects the purchase without charging coins.
 
-删除退款按该条目**实际购买价格**计算，默认退 100%，可关闭或设置为 0～100 的整数比例，结果向下取整。免费领取和没有购买记录的条目不退款。过期条目默认不退款，可通过 `refund-expired` 开启。
+Refunds use the amount actually paid for that entry, so later product price changes do not change the refund. Free and administrator-granted entries refund zero. Refunds are calculated with the configured percentage and rounded down. Duplicate deletion cannot issue a second refund. If the refund would exceed the balance limit, the title is kept.
 
-确认页显示预计退款。重复点击不会重复退款；退款超过余额上限时，称号保留。删除不会恢复商品总库存或个人累计限购次数。调低仓库上限不会自动删除现有称号。
+## Colors and display
 
-## 配置与数据
+Crown accepts legacy `&` and `§` codes, RGB forms such as `&#FF8800`, `&x&F&F&8&8&0&0`, and MiniMessage colors, gradients, and rainbows. RGB and advanced formatting are controlled by `custom-title.allow-rgb`, `allow-gradient`, and `allow-formatting`. LuckPerms users also need `crown.shop.custom.color` for colored custom titles.
 
-| 文件 | 内容 |
+For display modes, see [DISPLAY.md](DISPLAY.md). For TAB Fabric 6.0.3, use `%crown:title_legacy%` in `tabprefix` and `tagprefix`; use `%crown:title%` for consumers that preserve native Minecraft components.
+
+## Permissions
+
+LuckPerms is authoritative when installed. Useful nodes include:
+
+```text
+crown.admin.*
+crown.admin.coin
+crown.admin.reload
+crown.admin.title
+crown.command.*
+crown.shop.custom.color
+```
+
+See [PERMISSIONS.md](PERMISSIONS.md) for the complete node table. OP bypasses only the custom-title forbidden-word check; it does not bypass LuckPerms, warehouse limits, prices, or color permissions.
+
+## Configuration files
+
+| File | Purpose |
 |---|---|
-| `config/crown/config.yml` | 默认称号、自定义、称号币、显示、容量和退款 |
-| `config/crown/titles.yml` | 商品 |
-| `config/crown/storage.yml` | SQLite / MySQL 连接 |
-| `config/crown/lang/*.json` | 提示、帮助和错误文案 |
-| `config/crown/gui/*.yml` | 菜单布局和文案 |
-| `config/crown/data/crown.db` | 默认 SQLite 玩家数据 |
+| `config/crown/config.yml` | Coins, custom titles, display, limits, and refunds |
+| `config/crown/titles.yml` | Shop products |
+| `config/crown/storage.yml` | SQLite or MySQL connection |
+| `config/crown/lang/*.json` | Non-GUI messages |
+| `config/crown/gui/*.yml` | GUI layout and GUI text |
+| `config/crown/data/crown.db` | Default SQLite data |
 
-数据库设置修改后需要重启。备份时先正常停服，再复制整个 `config/crown/`；如果使用 MySQL，还需要备份数据库。不要为了重新生成配置而删除玩家数据库。
+See [CONFIGURATION.md](CONFIGURATION.md) for detailed options. Stop the server before backing up the database. Database connection changes require a restart.
 
-[配置说明](CONFIGURATION.md) · [称号显示与颜色](DISPLAY.md) · [权限与 LuckPerms](PERMISSIONS.md)
+## Documentation
 
-## 常见问题
+- Chinese guide: [README_zh.md](README_zh.md)
+- Configuration: [CONFIGURATION.md](CONFIGURATION.md)
+- Display and colors: [DISPLAY.md](DISPLAY.md)
+- Permissions and LuckPerms: [PERMISSIONS.md](PERMISSIONS.md)
 
-**购买后在哪里佩戴？** 打开仓库，左键点击称号。购买不会自动替换当前佩戴。
+## License
 
-**为什么修改商品后，已经买到的称号没有变化？** 仓库保存购买时的文字、前后缀和有效期。商品修改、下架或删除只影响后续购买。
-
-**为什么称号有 UUID？** 每份仓库条目都有独立 UUID，用来区分重复购买的同款称号。仓库同时显示来源、获取时间和到期时间。
-
-**为什么看不到称号？** 默认显示模式是 `placeholder`，需要在外部模组中配置变量；也可以改为 `vanilla`。头顶显示若被其他模组队伍占用，Crown 会避让。
-
-**为什么 OP 没有管理命令？** 安装 LuckPerms 后以 LP 权限为准，按权限文档授权后重新登录刷新命令补全。
-
-**为什么旧菜单没有退款说明？** 已有菜单文案会保留。将删除确认页 lore 改为 `预计退还：{refund} {title_coin_unit}`；仓库导航 lore 可使用 `{owned_count}/{owned_limit}`。也可备份相应 GUI 文件后移走，再重载生成默认菜单，无需删除数据库。
-
-## 许可
-
-[CC0-1.0](LICENSE)。
+[MIT License](LICENSE).
