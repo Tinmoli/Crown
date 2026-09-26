@@ -87,9 +87,9 @@ Refunds use the amount actually paid for that entry, so later product price chan
 Crown accepts legacy `&` and `§` codes, RGB forms such as `&#FF8800`, `&x&F&F&8&8&0&0`, and MiniMessage colors, gradients, and rainbows. RGB and advanced formatting are controlled by `custom-title.allow-rgb`, `allow-gradient`, and `allow-formatting`. LuckPerms users also need `crown.shop.custom.color` for colored custom titles.
 
 
-## Permissions
+## Permissions and LuckPerms
 
-LuckPerms is authoritative when installed. Useful nodes include:
+LuckPerms is authoritative when installed. These are the main nodes:
 
 ```text
 crown.admin.*
@@ -112,8 +112,71 @@ crown.shop.custom.color
 | `config/crown/gui/*.yml` | GUI layout and GUI text |
 | `config/crown/data/crown.db` | Default SQLite data |
 
+### How configuration is parsed
 
-## Complete usage reference
+All files use UTF-8. YAML indentation must use spaces. Crown creates missing files and fills missing keys with defaults. An invalid file does not replace the last valid configuration. After changing products, language, or GUI settings, run `/crown reload`; storage connection changes require a server restart.
+
+### Core settings
+
+| Section | Important keys | Description |
+|---|---|---|
+| `language` | `zh_cn`, `en_us` | Non-GUI message language |
+| `title-coin` | `name`, `symbol`, `maximum-balance` | Coin display and balance limit |
+| `custom-title` | `enabled`, `price`, `duration` | Custom title purchase settings |
+| `custom-title` | `minimum-length`, `maximum-length` | Visible text length limits |
+| `custom-title` | `allow-rgb`, `allow-gradient`, `allow-formatting` | Color and formatting switches |
+| `custom-title` | `forbidden-words` | Words blocked for non-OP players |
+| `purchase` | `maximum-owned-titles-per-player` | Warehouse capacity; `-1` means unlimited |
+| `deletion` | `refund-enabled`, `refund-percent`, `refund-expired` | Deletion refund behavior |
+
+Example custom-title settings:
+
+```yaml
+custom-title:
+  enabled: true
+  price: 50
+  duration:
+    type: "PERMANENT"
+    days: 0
+  prefix: "&7["
+  suffix: "&7]"
+  minimum-length: 1
+  maximum-length: 16
+  allow-rgb: true
+  allow-gradient: true
+  allow-formatting: true
+  forbidden-words: ["owner", "admin"]
+```
+
+### Product configuration
+
+Products are stored in `titles.yml`. Omit `duration` for a permanent title. Set stock or purchase limits to `-1` for unlimited values. Product edits affect future purchases; owned entries keep the text, price basis, and expiry snapshot from purchase time.
+
+```yaml
+titles:
+  champion:
+    enabled: true
+    visible: true
+    text: "<gradient:#FFAA00:#FFFF55>Champion</gradient>"
+    prefix: "&7["
+    suffix: "&7]"
+    icon: "minecraft:golden_helmet"
+    description: ["&7Event title"]
+    price: 50
+    duration:
+      days: 30
+    requirement:
+      permission: "crown.title.champion"
+      deny-if-missing-permission: true
+    sale:
+      global-stock: 100
+      per-player-limit: 1
+```
+
+GUI layouts are in `gui/*.yml`; keep existing action names and slots when editing. Non-GUI messages are in `lang/zh_cn.json` and `lang/en_us.json`; keep their keys synchronized. SQLite is the default storage, while `storage.yml` can configure MySQL. Stop the server before backing up `config/crown/`.
+
+
+## Display and integration reference
 
 ### Display modes
 
@@ -145,13 +208,23 @@ display:
 | `%crown:title_expires%` | Remaining time or permanent |
 | `%crown:title_coin%` / `%crown:title_coin_raw%` | Formatted or numeric coin balance |
 
-### Configuration reference
-
-Common `config.yml` options include `language`, `title-coin.maximum-balance`, `custom-title.price`, `custom-title.minimum-length`, `custom-title.maximum-length`, `custom-title.allow-rgb`, `custom-title.allow-gradient`, `custom-title.allow-formatting`, `custom-title.forbidden-words`, `purchase.maximum-owned-titles-per-player`, `deletion.refund-enabled`, `deletion.refund-percent`, and `deletion.refund-expired`. GUI layouts are in `gui/*.yml`; non-GUI messages are in `lang/zh_cn.json` and `lang/en_us.json`. Run `/crown reload` after changing products, language, or GUI settings. Storage connection changes require a restart.
-
 ### Permission reference
 
-LuckPerms nodes commonly used are `crown.command.open`, `crown.command.shop`, `crown.command.buy`, `crown.command.custom`, `crown.command.coin`, `crown.command.card`, `crown.admin.coin`, `crown.admin.reload`, `crown.admin.title`, `crown.command.*`, and `crown.shop.custom.color`. LuckPerms is authoritative when installed; explicit denials are not bypassed by OP. Without LuckPerms, ordinary commands are available by default and administrator commands require OP level 3. OP bypasses only forbidden-word checks.
+| Node | Purpose |
+|---|---|
+| `crown.command.open` | Main menu, help, warehouse, equip, unequip, and delete |
+| `crown.command.shop` | Open the title shop |
+| `crown.command.buy` | Confirm GUI purchases |
+| `crown.command.custom` | Use the custom-title flow |
+| `crown.command.coin` | Check the personal coin balance |
+| `crown.command.card` | Redeem a title card |
+| `crown.admin.coin` | Use `give`, `take`, `set`, and `look` |
+| `crown.admin.reload` | Reload configuration and GUI settings |
+| `crown.admin.title` | Open the product administration GUI |
+| `crown.shop.custom.color` | Use colors in custom titles |
+| `crown.title.<id>` | Product-specific permission from `titles.yml` |
+
+LuckPerms explicit denials are not bypassed by OP. Without LuckPerms, ordinary commands are available by default and administrator commands require OP level 3. Warehouse limits, prices, and color permissions still apply to OP; only forbidden-word checks are bypassed.
 
 Native Minecraft text assigns one color to each character, so gradients and rainbows are static character-based colors rather than animated multi-color glyphs.
 
@@ -161,4 +234,4 @@ Native Minecraft text assigns one color to each character, so gradients and rain
 
 ## License
 
-[MIT License](LICENSE).
+This project is released under the [MIT License](LICENSE). You may use, modify, and redistribute it under the terms of that license.
