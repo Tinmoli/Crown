@@ -86,7 +86,6 @@ Refunds use the amount actually paid for that entry, so later product price chan
 
 Crown accepts legacy `&` and `§` codes, RGB forms such as `&#FF8800`, `&x&F&F&8&8&0&0`, and MiniMessage colors, gradients, and rainbows. RGB and advanced formatting are controlled by `custom-title.allow-rgb`, `allow-gradient`, and `allow-formatting`. LuckPerms users also need `crown.shop.custom.color` for colored custom titles.
 
-For display modes, see [DISPLAY.md](DISPLAY.md). For TAB Fabric 6.0.3, use `%crown:title_legacy%` in `tabprefix` and `tagprefix`; use `%crown:title%` for consumers that preserve native Minecraft components.
 
 ## Permissions
 
@@ -101,7 +100,6 @@ crown.command.*
 crown.shop.custom.color
 ```
 
-See [PERMISSIONS.md](PERMISSIONS.md) for the complete node table. OP bypasses only the custom-title forbidden-word check; it does not bypass LuckPerms, warehouse limits, prices, or color permissions.
 
 ## Configuration files
 
@@ -114,14 +112,52 @@ See [PERMISSIONS.md](PERMISSIONS.md) for the complete node table. OP bypasses on
 | `config/crown/gui/*.yml` | GUI layout and GUI text |
 | `config/crown/data/crown.db` | Default SQLite data |
 
-See [CONFIGURATION.md](CONFIGURATION.md) for detailed options. Stop the server before backing up the database. Database connection changes require a restart.
+
+## Complete usage reference
+
+### Display modes
+
+Configure chat, TAB, and nametag independently in `config.yml`:
+
+```yaml
+display:
+  channels:
+    chat: "vanilla"
+    tab: "placeholder"
+    nametag: "placeholder"
+```
+
+`vanilla` uses Minecraft's native display path, `placeholder` exposes variables to another mod, and `disabled` stops active display while keeping variables available. Use `%crown:title%` when the receiving mod preserves native components, or `%crown:title_legacy%` when it expects legacy strings. TAB Fabric 6.0.3 should use `%crown:title_legacy%` in `tabprefix` and `tagprefix`.
+
+### Placeholder variables
+
+| Variable | Value |
+|---|---|
+| `%crown:title%` | Complete native styled title |
+| `%crown:title_text%` | Styled title body |
+| `%crown:title_prefix%` / `%crown:title_suffix%` | Styled prefix or suffix |
+| `%crown:title_legacy%` | Complete title serialized as legacy color codes |
+| `%crown:title_minimessage%` | Complete title serialized as MiniMessage |
+| `%crown:title_plain%` | Title without formatting |
+| `%crown:title_id%` | Entry UUID, `default`, or empty |
+| `%crown:title_definition%` | Product ID |
+| `%crown:title_state%` | `default`, `owned`, or `none` |
+| `%crown:title_expires%` | Remaining time or permanent |
+| `%crown:title_coin%` / `%crown:title_coin_raw%` | Formatted or numeric coin balance |
+
+### Configuration reference
+
+Common `config.yml` options include `language`, `title-coin.maximum-balance`, `custom-title.price`, `custom-title.minimum-length`, `custom-title.maximum-length`, `custom-title.allow-rgb`, `custom-title.allow-gradient`, `custom-title.allow-formatting`, `custom-title.forbidden-words`, `purchase.maximum-owned-titles-per-player`, `deletion.refund-enabled`, `deletion.refund-percent`, and `deletion.refund-expired`. GUI layouts are in `gui/*.yml`; non-GUI messages are in `lang/zh_cn.json` and `lang/en_us.json`. Run `/crown reload` after changing products, language, or GUI settings. Storage connection changes require a restart.
+
+### Permission reference
+
+LuckPerms nodes commonly used are `crown.command.open`, `crown.command.shop`, `crown.command.buy`, `crown.command.custom`, `crown.command.coin`, `crown.command.card`, `crown.admin.coin`, `crown.admin.reload`, `crown.admin.title`, `crown.command.*`, and `crown.shop.custom.color`. LuckPerms is authoritative when installed; explicit denials are not bypassed by OP. Without LuckPerms, ordinary commands are available by default and administrator commands require OP level 3. OP bypasses only forbidden-word checks.
+
+Native Minecraft text assigns one color to each character, so gradients and rainbows are static character-based colors rather than animated multi-color glyphs.
 
 ## Documentation
 
 - Chinese guide: [README_zh.md](README_zh.md)
-- Configuration: [CONFIGURATION.md](CONFIGURATION.md)
-- Display and colors: [DISPLAY.md](DISPLAY.md)
-- Permissions and LuckPerms: [PERMISSIONS.md](PERMISSIONS.md)
 
 ## License
 

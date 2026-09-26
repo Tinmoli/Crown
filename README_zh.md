@@ -22,7 +22,7 @@ display:
     nametag: "vanilla"
 ```
 
-修改后执行 `/crown reload`。使用 TAB 等外部模组时，参阅[称号显示与颜色](DISPLAY_zh.md)。
+修改后执行 `/crown reload`。使用 TAB 等外部模组时，参阅称号显示与颜色。
 
 ## 第一次使用
 
@@ -39,7 +39,7 @@ display:
 /lp group default permission set crown.shop.custom.color true
 ```
 
-第一条授予管理员权限，第二条允许普通玩家使用彩色自定义称号。完整说明见[权限与 LuckPerms](PERMISSIONS_zh.md)。
+第一条授予管理员权限，第二条允许普通玩家使用彩色自定义称号。完整说明见权限与 LuckPerms。
 
 ## 命令
 
@@ -78,7 +78,7 @@ stock=100
 limit=1
 ```
 
-永久期限使用 `duration=permanent`，无限库存或不限购使用 `stock=unlimited`、`limit=unlimited`。也可直接编辑 `titles.yml`，详见[配置说明](CONFIGURATION_zh.md)。
+永久期限使用 `duration=permanent`，无限库存或不限购使用 `stock=unlimited`、`limit=unlimited`。也可直接编辑 `titles.yml`，详见配置说明。
 
 ## 仓库上限与删除退款
 
@@ -114,7 +114,7 @@ deletion:
 
 数据库设置修改后需要重启。备份时先正常停服，再复制整个 `config/crown/`；如果使用 MySQL，还需要备份数据库。不要为了重新生成配置而删除玩家数据库。
 
-[配置说明](CONFIGURATION_zh.md) · [称号显示与颜色](DISPLAY_zh.md) · [权限与 LuckPerms](PERMISSIONS_zh.md)
+配置说明 · 称号显示与颜色 · 权限与 LuckPerms
 
 ## 常见问题
 
