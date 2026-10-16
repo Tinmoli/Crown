@@ -1,0 +1,17 @@
+.gradle/
+.gradle-cline/
+build/
+**/build/
+dist/
+run/
+run-smoke/
+**/run/
+**/run-smoke/
+.idea/
+.vscode/
+*.iml
+*.log
+hs_err_pid*
+config/crown/data/
+IMPLEMENTATION_ROADMAP.md
+DESIGN.md
