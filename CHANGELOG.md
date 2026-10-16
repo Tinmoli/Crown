@@ -4,9 +4,11 @@ Chinese version: [CHANGELOG_zh.md](CHANGELOG_zh.md)
 
 ## Unreleased
 
+- Place complete independent projects in version-named root folders, with matching version branches.
+
 - Add Minecraft 26.3 support and update the build toolchain to Gradle 9.6 / Loom 1.17.
 
-- Share Fabric implementation across supported versions and separate SQL record mapping.
+- Keep each Minecraft version fully independent and separate SQL record mapping.
 - Standardize Java layout and names; move bundled resources to assets/crown.
 - Add configurable daily check-in coins, reward probability, time zone, and LuckPerms permission.
 - Support inclusive random reward ranges and administrator/console check-in for a player, sharing their daily limit.
