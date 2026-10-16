@@ -94,6 +94,5 @@ processResources {
     }
 }
 
-// Fabric sources are owned by the current versions/<mc> module. Do not add a
-// shared source directory here: each supported Minecraft version is maintained
-// and compiled as a fully independent codebase.
+// Compile shared Fabric code against each version's Minecraft API.
+sourceSets.main.java.srcDir rootProject.file("common/fabric/src/main/java")

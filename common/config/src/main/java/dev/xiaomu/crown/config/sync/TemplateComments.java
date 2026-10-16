@@ -9,15 +9,12 @@ import java.util.Map;
 /**
  * 从内置 YML 模板提取注释，并把标准注释重新插入规范化输出。
  *
- * <p>该工具不尝试保留用户自定义注释；托管字段始终使用当前版本内置的
- * 简体中文注释。titles 开放映射中的自定义商品使用模板首个商品作为
- * 注释 Schema。</p>
+ * <p>该工具不尝试保留用户自定义注释；托管字段始终使用当前版本内置的 简体中文注释。titles 开放映射中的自定义商品使用模板首个商品作为 注释 Schema。
  */
 public final class TemplateComments {
     private static final String HEADER = "$header";
 
-    private TemplateComments() {
-    }
+    private TemplateComments() {}
 
     public static String apply(String template, String dumped) {
         Map<String, List<String>> comments = extract(template);
@@ -38,8 +35,7 @@ public final class TemplateComments {
                 continue;
             }
 
-            while (!stack.isEmpty()
-                    && stack.peekLast().indent() >= parsed.indent()) {
+            while (!stack.isEmpty() && stack.peekLast().indent() >= parsed.indent()) {
                 stack.removeLast();
             }
             stack.addLast(new PathPart(parsed.indent(), parsed.key()));
@@ -49,8 +45,7 @@ public final class TemplateComments {
                 block = comments.get(titleWildcard(path));
             }
             if (block != null && !block.isEmpty()) {
-                if (!output.isEmpty()
-                        && !output.get(output.size() - 1).isEmpty()) {
+                if (!output.isEmpty() && !output.get(output.size() - 1).isEmpty()) {
                     output.add("");
                 }
                 output.addAll(block);
@@ -84,8 +79,7 @@ public final class TemplateComments {
                 pending.clear();
                 continue;
             }
-            while (!stack.isEmpty()
-                    && stack.peekLast().indent() >= parsed.indent()) {
+            while (!stack.isEmpty() && stack.peekLast().indent() >= parsed.indent()) {
                 stack.removeLast();
             }
             stack.addLast(new PathPart(parsed.indent(), parsed.key()));
@@ -165,8 +159,7 @@ public final class TemplateComments {
         if (value.length() >= 2) {
             char first = value.charAt(0);
             char last = value.charAt(value.length() - 1);
-            if ((first == '"' && last == '"')
-                    || (first == '\'' && last == '\'')) {
+            if ((first == '"' && last == '"') || (first == '\'' && last == '\'')) {
                 return value.substring(1, value.length() - 1);
             }
         }
@@ -180,9 +173,7 @@ public final class TemplateComments {
                 .orElse("");
     }
 
-    private record ParsedKey(int indent, String key) {
-    }
+    private record ParsedKey(int indent, String key) {}
 
-    private record PathPart(int indent, String key) {
-    }
+    private record PathPart(int indent, String key) {}
 }

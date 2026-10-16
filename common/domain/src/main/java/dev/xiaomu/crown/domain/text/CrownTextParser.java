@@ -22,13 +22,28 @@ import java.util.Objects;
 public final class CrownTextParser {
     private static final TagResolver COLORS = StandardTags.color();
     private static final TagResolver DECORATIONS = StandardTags.decorations();
-    private static final TagResolver EFFECTS = TagResolver.resolver(
-            StandardTags.gradient(), StandardTags.rainbow(), StandardTags.transition());
-    private static final TagResolver TAGS = TagResolver.resolver(
-            COLORS, DECORATIONS, EFFECTS, StandardTags.reset());
+    private static final TagResolver EFFECTS =
+            TagResolver.resolver(
+                    StandardTags.gradient(), StandardTags.rainbow(), StandardTags.transition());
+    private static final TagResolver TAGS =
+            TagResolver.resolver(COLORS, DECORATIONS, EFFECTS, StandardTags.reset());
     private static final String[] LEGACY_COLORS = {
-            "black", "dark_blue", "dark_green", "dark_aqua", "dark_red", "dark_purple",
-            "gold", "gray", "dark_gray", "blue", "green", "aqua", "red", "light_purple", "yellow", "white"
+        "black",
+        "dark_blue",
+        "dark_green",
+        "dark_aqua",
+        "dark_red",
+        "dark_purple",
+        "gold",
+        "gray",
+        "dark_gray",
+        "blue",
+        "green",
+        "aqua",
+        "red",
+        "light_purple",
+        "yellow",
+        "white"
     };
     private final TextParsePolicy policy;
     private final MiniMessage mini;
@@ -40,19 +55,22 @@ public final class CrownTextParser {
 
     public StyledText parse(String source) {
         Objects.requireNonNull(source, "source");
-        if (source.length() > policy.maximumSourceLength()) throw error(TextParseError.SOURCE_TOO_LONG);
-        if (source.codePoints().anyMatch(Character::isISOControl)) throw error(TextParseError.CONTROL_CHARACTER);
+        if (source.length() > policy.maximumSourceLength())
+            throw error(TextParseError.SOURCE_TOO_LONG);
+        if (source.codePoints().anyMatch(Character::isISOControl))
+            throw error(TextParseError.CONTROL_CHARACTER);
         Component component = mini.deserialize(normalize(source));
         var segments = new ArrayList<StyledSegment>();
         flatten(component, TextStyle.EMPTY, segments);
         StyledText result = new StyledText(segments);
-        if (result.visibleCodePointCount() > policy.maximumVisibleLength()) throw error(TextParseError.VISIBLE_TOO_LONG);
+        if (result.visibleCodePointCount() > policy.maximumVisibleLength())
+            throw error(TextParseError.VISIBLE_TOO_LONG);
         return result;
     }
 
     private String normalize(String source) {
         var result = new StringBuilder();
-        for (int i = 0; i < source.length();) {
+        for (int i = 0; i < source.length(); ) {
             char marker = source.charAt(i);
             if (marker == '\\' && i + 1 < source.length()) {
                 result.append(marker).append(source.charAt(i + 1));
@@ -75,7 +93,8 @@ public final class CrownTextParser {
                     var digits = new StringBuilder();
                     for (int j = 0; j < 6; j++) {
                         int at = i + 2 + j * 2;
-                        if (source.charAt(at) != marker || Character.digit(source.charAt(at + 1), 16) < 0) {
+                        if (source.charAt(at) != marker
+                                || Character.digit(source.charAt(at + 1), 16) < 0) {
                             throw error(TextParseError.MALFORMED_RGB);
                         }
                         digits.append(source.charAt(at + 1));
@@ -101,15 +120,16 @@ public final class CrownTextParser {
                     i += 2;
                     continue;
                 }
-                String tag = switch (code) {
-                    case 'k' -> "obfuscated";
-                    case 'l' -> "bold";
-                    case 'm' -> "strikethrough";
-                    case 'n' -> "underlined";
-                    case 'o' -> "italic";
-                    case 'r' -> "reset";
-                    default -> null;
-                };
+                String tag =
+                        switch (code) {
+                            case 'k' -> "obfuscated";
+                            case 'l' -> "bold";
+                            case 'm' -> "strikethrough";
+                            case 'n' -> "underlined";
+                            case 'o' -> "italic";
+                            case 'r' -> "reset";
+                            default -> null;
+                        };
                 if (tag != null) {
                     requireLegacy();
                     result.append('<').append(tag).append('>');
@@ -117,7 +137,9 @@ public final class CrownTextParser {
                     continue;
                 }
             }
-            if (marker == '#' && i + 7 <= source.length() && RgbColor.isHex(source.substring(i + 1, i + 7))) {
+            if (marker == '#'
+                    && i + 7 <= source.length()
+                    && RgbColor.isHex(source.substring(i + 1, i + 7))) {
                 requireRgb();
                 result.append('<').append(source, i, i + 7).append('>');
                 i += 7;
@@ -130,11 +152,15 @@ public final class CrownTextParser {
     }
 
     private final class CheckedTags implements TagResolver {
-        @Override public boolean has(String name) {
-            return TAGS.has(name) || name.startsWith("crown_legacy_") || name.startsWith("crown_rgb_");
+        @Override
+        public boolean has(String name) {
+            return TAGS.has(name)
+                    || name.startsWith("crown_legacy_")
+                    || name.startsWith("crown_rgb_");
         }
 
-        @Override public Tag resolve(String name, ArgumentQueue arguments, Context context) {
+        @Override
+        public Tag resolve(String name, ArgumentQueue arguments, Context context) {
             boolean emptyArguments = !arguments.hasNext();
             if (emptyArguments && List.of("color", "colour", "c").contains(name)) return null;
             if (name.startsWith("crown_legacy_") || name.startsWith("crown_rgb_")) {
@@ -142,16 +168,22 @@ public final class CrownTextParser {
                 if (name.startsWith("crown_legacy_")) {
                     requireLegacy();
                     String code = name.substring("crown_legacy_".length());
-                    if (code.length() != 1 || Character.digit(code.charAt(0), 16) < 0) throw error(TextParseError.MALFORMED_COLOR_TAG);
-                    color = NamedTextColor.NAMES.value(LEGACY_COLORS[Character.digit(code.charAt(0), 16)]);
+                    if (code.length() != 1 || Character.digit(code.charAt(0), 16) < 0)
+                        throw error(TextParseError.MALFORMED_COLOR_TAG);
+                    color =
+                            NamedTextColor.NAMES.value(
+                                    LEGACY_COLORS[Character.digit(code.charAt(0), 16)]);
                 } else {
                     requireRgb();
                     String hex = name.substring("crown_rgb_".length());
                     if (!RgbColor.isHex(hex)) throw error(TextParseError.MALFORMED_RGB);
-                    color = net.kyori.adventure.text.format.TextColor.color(RgbColor.parse(hex).packed());
+                    color =
+                            net.kyori.adventure.text.format.TextColor.color(
+                                    RgbColor.parse(hex).packed());
                 }
                 var style = Style.style().color(color);
-                for (var decoration : net.kyori.adventure.text.format.TextDecoration.values()) style.decoration(decoration, false);
+                for (var decoration : net.kyori.adventure.text.format.TextDecoration.values())
+                    style.decoration(decoration, false);
                 return Tag.styling(builder -> builder.merge(style.build()));
             }
             if (EFFECTS.has(name)) {
@@ -159,8 +191,10 @@ public final class CrownTextParser {
                 requireRgb();
             } else if (COLORS.has(name)) {
                 String value = name;
-                if (List.of("color", "colour", "c").contains(name) && arguments.hasNext()) value = arguments.peek().value();
-                if (value.startsWith("#")) requireRgb(); else requireLegacy();
+                if (List.of("color", "colour", "c").contains(name) && arguments.hasNext())
+                    value = arguments.peek().value();
+                if (value.startsWith("#")) requireRgb();
+                else requireLegacy();
             } else if (DECORATIONS.has(name) || name.equals("reset")) {
                 requireLegacy();
             }
@@ -169,12 +203,16 @@ public final class CrownTextParser {
             } catch (ParsingException exception) {
                 // MiniMessage probes closing tag names without their opening arguments.
                 if (emptyArguments) return null;
-                throw error(EFFECTS.has(name) ? TextParseError.MALFORMED_GRADIENT_TAG : TextParseError.MALFORMED_COLOR_TAG);
+                throw error(
+                        EFFECTS.has(name)
+                                ? TextParseError.MALFORMED_GRADIENT_TAG
+                                : TextParseError.MALFORMED_COLOR_TAG);
             }
         }
     }
 
-    private static void flatten(Component component, TextStyle inherited, List<StyledSegment> output) {
+    private static void flatten(
+            Component component, TextStyle inherited, List<StyledSegment> output) {
         var style = component.style();
         var decorations = EnumSet.noneOf(TextDecoration.class);
         decorations.addAll(inherited.decorations());
@@ -183,11 +221,15 @@ public final class CrownTextParser {
             switch (style.decoration(key)) {
                 case TRUE -> decorations.add(decoration);
                 case FALSE -> decorations.remove(decoration);
-                case NOT_SET -> { }
+                case NOT_SET -> {}
             }
         }
-        TextStyle resolved = new TextStyle(style.color() == null ? inherited.color()
-                : RgbColor.fromPacked(style.color().value()), decorations);
+        TextStyle resolved =
+                new TextStyle(
+                        style.color() == null
+                                ? inherited.color()
+                                : RgbColor.fromPacked(style.color().value()),
+                        decorations);
         if (component instanceof TextComponent text && !text.content().isEmpty()) {
             if (!output.isEmpty() && output.getLast().style().equals(resolved)) {
                 StyledSegment previous = output.removeLast();
@@ -200,9 +242,11 @@ public final class CrownTextParser {
     private void requireLegacy() {
         if (!policy.allowLegacyFormatting()) throw error(TextParseError.LEGACY_DISABLED);
     }
+
     private void requireRgb() {
         if (!policy.allowRgb()) throw error(TextParseError.RGB_DISABLED);
     }
+
     private static TextParseException error(TextParseError error) {
         return new TextParseException(error, error.name().toLowerCase(Locale.ROOT), 0);
     }

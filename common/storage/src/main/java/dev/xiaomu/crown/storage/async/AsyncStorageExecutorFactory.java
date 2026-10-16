@@ -9,21 +9,16 @@ import java.util.Objects;
 public final class AsyncStorageExecutorFactory {
     private static final int SQLITE_QUEUE_CAPACITY = 4_096;
     private static final int MYSQL_QUEUE_PER_WORKER = 512;
-    private static final Duration SHUTDOWN_TIMEOUT =
-            Duration.ofSeconds(30);
+    private static final Duration SHUTDOWN_TIMEOUT = Duration.ofSeconds(30);
 
     public AsyncStorageExecutor create(StorageSettings settings) {
         Objects.requireNonNull(settings, "settings");
         if (settings.type() == StorageSettings.Type.SQLITE) {
-            return AsyncStorageExecutor.sqlite(
-                    SQLITE_QUEUE_CAPACITY,
-                    SHUTDOWN_TIMEOUT);
+            return AsyncStorageExecutor.sqlite(SQLITE_QUEUE_CAPACITY, SHUTDOWN_TIMEOUT);
         }
 
         int workers = settings.mysql().pool().maximumSize();
-        int queueCapacity = Math.multiplyExact(
-                workers, MYSQL_QUEUE_PER_WORKER);
-        return AsyncStorageExecutor.mysql(
-                workers, queueCapacity, SHUTDOWN_TIMEOUT);
+        int queueCapacity = Math.multiplyExact(workers, MYSQL_QUEUE_PER_WORKER);
+        return AsyncStorageExecutor.mysql(workers, queueCapacity, SHUTDOWN_TIMEOUT);
     }
 }

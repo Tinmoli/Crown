@@ -2,6 +2,16 @@
 
 Chinese version: [CHANGELOG_zh.md](CHANGELOG_zh.md)
 
+## Unreleased
+
+- Add Minecraft 26.3 support and update the build toolchain to Gradle 9.6 / Loom 1.17.
+
+- Share Fabric implementation across supported versions and separate SQL record mapping.
+- Standardize Java layout and names; move bundled resources to assets/crown.
+- Add configurable daily check-in coins, reward probability, time zone, and LuckPerms permission.
+- Support inclusive random reward ranges and administrator/console check-in for a player, sharing their daily limit.
+- Use a repository-relative README logo.
+
 ## Crown v0.1.0
 
 The first release of Crown, a lightweight Minecraft title shop mod that uses title coins to purchase, equip, and manage titles.

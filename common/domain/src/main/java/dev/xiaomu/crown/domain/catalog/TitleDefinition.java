@@ -17,49 +17,34 @@ public record TitleDefinition(
         PaymentPolicy payment,
         String requiredPermission,
         boolean denyIfMissingPermission,
-        SalePolicy sale
-) {
+        SalePolicy sale) {
     public TitleDefinition {
         id = Objects.requireNonNull(id, "id");
         category = requireText(category, "category", 64);
         content = Objects.requireNonNull(content, "content");
         icon = Objects.requireNonNull(icon, "icon");
-        description = List.copyOf(Objects.requireNonNull(
-                description, "description"));
+        description = List.copyOf(Objects.requireNonNull(description, "description"));
         if (description.size() > 32
-                || description.stream().anyMatch(line ->
-                line == null || line.length() > 512)) {
-            throw new IllegalArgumentException(
-                    "Title description is invalid");
+                || description.stream().anyMatch(line -> line == null || line.length() > 512)) {
+            throw new IllegalArgumentException("Title description is invalid");
         }
         duration = Objects.requireNonNull(duration, "duration");
         payment = Objects.requireNonNull(payment, "payment");
-        requiredPermission = Objects.requireNonNull(
-                requiredPermission, "requiredPermission");
-        if (!requiredPermission.isEmpty()
-                && !requiredPermission.matches(
-                "[a-z0-9_.-]{1,128}")) {
-            throw new IllegalArgumentException(
-                    "Invalid title permission");
+        requiredPermission = Objects.requireNonNull(requiredPermission, "requiredPermission");
+        if (!requiredPermission.isEmpty() && !requiredPermission.matches("[a-z0-9_.-]{1,128}")) {
+            throw new IllegalArgumentException("Invalid title permission");
         }
         sale = Objects.requireNonNull(sale, "sale");
     }
 
     public Optional<String> permission() {
-        return requiredPermission.isEmpty()
-                ? Optional.empty()
-                : Optional.of(requiredPermission);
+        return requiredPermission.isEmpty() ? Optional.empty() : Optional.of(requiredPermission);
     }
 
-    private static String requireText(
-            String value,
-            String name,
-            int maximumLength
-    ) {
+    private static String requireText(String value, String name, int maximumLength) {
         Objects.requireNonNull(value, name);
         if (value.isBlank() || value.length() > maximumLength) {
-            throw new IllegalArgumentException(
-                    name + " is blank or too long");
+            throw new IllegalArgumentException(name + " is blank or too long");
         }
         return value;
     }

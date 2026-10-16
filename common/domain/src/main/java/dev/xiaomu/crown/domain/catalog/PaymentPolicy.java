@@ -11,8 +11,19 @@ public record PaymentPolicy(long titleCoinPrice) {
         }
     }
 
-    public static PaymentPolicy titleCoin(long price) { return new PaymentPolicy(price); }
-    public static PaymentPolicy free() { return new PaymentPolicy(0); }
-    public PaymentType type() { return titleCoinPrice == 0 ? PaymentType.FREE : PaymentType.TITLE_COIN; }
-    public Optional<BigDecimal> configuredPrice() { return Optional.of(BigDecimal.valueOf(titleCoinPrice)); }
+    public static PaymentPolicy titleCoin(long price) {
+        return new PaymentPolicy(price);
+    }
+
+    public static PaymentPolicy free() {
+        return new PaymentPolicy(0);
+    }
+
+    public PaymentType type() {
+        return titleCoinPrice == 0 ? PaymentType.FREE : PaymentType.TITLE_COIN;
+    }
+
+    public Optional<BigDecimal> configuredPrice() {
+        return Optional.of(BigDecimal.valueOf(titleCoinPrice));
+    }
 }

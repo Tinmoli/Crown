@@ -1,21 +1,19 @@
 package dev.xiaomu.crown.domain.catalog;
 
-import org.junit.jupiter.api.Test;
-
-import java.time.Instant;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.junit.jupiter.api.Test;
+
+import java.time.Instant;
+
 final class CatalogModelTest {
     @Test
     void validatesIdsAndPaymentExclusivity() {
-        assertEquals("event_winner",
-                DefinitionId.of("event_winner").value());
-        assertThrows(IllegalArgumentException.class,
-                () -> DefinitionId.of("Event Winner"));
+        assertEquals("event_winner", DefinitionId.of("event_winner").value());
+        assertThrows(IllegalArgumentException.class, () -> DefinitionId.of("Event Winner"));
 
         PaymentPolicy coins = PaymentPolicy.titleCoin(50);
         assertEquals(PaymentType.TITLE_COIN, coins.type());
@@ -27,14 +25,13 @@ final class CatalogModelTest {
     @Test
     void durationCalculatesAbsoluteExpiry() {
         Instant granted = Instant.parse("2026-01-01T00:00:00Z");
-        assertTrue(DurationPolicy.permanent()
-                .expiresAt(granted).isEmpty());
-        assertEquals(Instant.parse("2026-01-31T00:00:00Z"),
-                DurationPolicy.limited(30)
-                        .expiresAt(granted).orElseThrow());
-        assertThrows(IllegalArgumentException.class,
-                () -> new DurationPolicy(
-                        DurationType.PERMANENT, 1));
+        assertTrue(DurationPolicy.permanent().expiresAt(granted).isEmpty());
+        assertEquals(
+                Instant.parse("2026-01-31T00:00:00Z"),
+                DurationPolicy.limited(30).expiresAt(granted).orElseThrow());
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new DurationPolicy(DurationType.PERMANENT, 1));
     }
 
     @Test
@@ -48,7 +45,6 @@ final class CatalogModelTest {
         assertFalse(sale.onSaleAt(start.minusMillis(1)));
         assertFalse(sale.onSaleAt(end.plusMillis(1)));
         assertTrue(sale.limitedStock());
-        assertThrows(IllegalArgumentException.class,
-                () -> new SalePolicy(end, start, -1, -1));
+        assertThrows(IllegalArgumentException.class, () -> new SalePolicy(end, start, -1, -1));
     }
 }

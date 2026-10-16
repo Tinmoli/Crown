@@ -1,9 +1,9 @@
 package dev.xiaomu.crown.domain.text;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import org.junit.jupiter.api.Test;
 
 final class RgbColorTest {
     @Test
@@ -17,19 +17,16 @@ final class RgbColorTest {
 
     @Test
     void interpolationUsesRoundedLinearChannels() {
-        assertEquals("#800080", RgbColor.interpolate(
-                RgbColor.parse("#FF0000"),
-                RgbColor.parse("#0000FF"),
-                0.5).toHex());
+        assertEquals(
+                "#800080",
+                RgbColor.interpolate(RgbColor.parse("#FF0000"), RgbColor.parse("#0000FF"), 0.5)
+                        .toHex());
     }
 
     @Test
     void rejectsInvalidValues() {
-        assertThrows(IllegalArgumentException.class,
-                () -> RgbColor.parse("#12345"));
-        assertThrows(IllegalArgumentException.class,
-                () -> RgbColor.fromPacked(-1));
-        assertThrows(IllegalArgumentException.class,
-                () -> new RgbColor(256, 0, 0));
+        assertThrows(IllegalArgumentException.class, () -> RgbColor.parse("#12345"));
+        assertThrows(IllegalArgumentException.class, () -> RgbColor.fromPacked(-1));
+        assertThrows(IllegalArgumentException.class, () -> new RgbColor(256, 0, 0));
     }
 }

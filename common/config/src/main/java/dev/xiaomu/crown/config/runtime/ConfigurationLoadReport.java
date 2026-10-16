@@ -10,25 +10,18 @@ import java.util.Objects;
 public record ConfigurationLoadReport(
         RuntimeSnapshot snapshot,
         List<ConfigurationSyncResult> configurations,
-        List<LanguageSyncReport> languages
-) {
+        List<LanguageSyncReport> languages) {
     public ConfigurationLoadReport {
         snapshot = Objects.requireNonNull(snapshot, "snapshot");
-        configurations = List.copyOf(Objects.requireNonNull(
-                configurations, "configurations"));
-        languages = List.copyOf(Objects.requireNonNull(
-                languages, "languages"));
+        configurations = List.copyOf(Objects.requireNonNull(configurations, "configurations"));
+        languages = List.copyOf(Objects.requireNonNull(languages, "languages"));
     }
 
     public long changedConfigurationCount() {
-        return configurations.stream()
-                .filter(ConfigurationSyncResult::changed)
-                .count();
+        return configurations.stream().filter(ConfigurationSyncResult::changed).count();
     }
 
     public long changedLanguageCount() {
-        return languages.stream()
-                .filter(LanguageSyncReport::changed)
-                .count();
+        return languages.stream().filter(LanguageSyncReport::changed).count();
     }
 }

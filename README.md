@@ -1,5 +1,7 @@
 # Crown
 
+![Crown](common/config/src/main/resources/assets/crown/logo.svg)
+
 Crown is a server-side title shop and title warehouse mod for Fabric. Players use chest GUIs to browse, buy, customize, equip, and remove titles. Clients do not need to install Crown.
 
 All purchases use Crown's built-in title coins. Administrators grant coins with commands. Crown also supports timed titles, warehouse limits, deletion refunds, RGB colors, gradients, LuckPerms, and Text Placeholder API.
@@ -8,8 +10,8 @@ All purchases use Crown's built-in title coins. Administrators grant coins with 
 
 ## Installation
 
-1. Use Java 25, Fabric Loader 0.19.3 or newer, and the matching Fabric API.
-2. Put the JAR matching your Minecraft version in the server's `mods` directory. Supported versions are 26.1, 26.1.1, 26.1.2, and 26.2.
+1. Use Java 25, Fabric Loader 0.19.5 or newer, and the matching Fabric API. Minecraft 26.3 requires Fabric API 0.162.0 or newer for that game version.
+2. Put the JAR matching your Minecraft version in the server's `mods` directory. Supported versions are 26.1, 26.1.1, 26.1.2, 26.2, and 26.3.
 3. Start the server once. Crown creates `config/crown/` and uses SQLite by default.
 4. LuckPerms and Text Placeholder API are optional integrations. GUI and database libraries are bundled.
 5. Configure title display. The default mode provides variables to other mods. To let Crown display titles directly, set the channels to `vanilla` in `config.yml`.
@@ -26,6 +28,10 @@ Run these commands in game with `/`; remove `/` in the server console.
 | `/crown warehouse` | Open the title warehouse |
 | `/crown custom` | Create a custom title |
 | `/crown balance` | Check your title coins |
+| `/crown checkin` | Claim today's random title coins |
+| `/crown checkin <player>` | Administrator check-in for one player |
+| `/crown checkin` | Claim today's random title coins |
+| `/crown checkin <player>` | Administrator check-in for one player |
 | `/crown give <player> <amount>` | Grant title coins |
 | `/crown take <player> <amount>` | Remove title coins, down to zero |
 | `/crown set <player> <amount>` | Set a player's balance |
@@ -34,6 +40,32 @@ Run these commands in game with `/`; remove `/` in the server console.
 | `/crown reload` | Reload language, products, and GUI settings |
 
 Players buy and equip titles through the GUI. There are no `/buy`, `/equip`, `/coin`, or legacy storage commands.
+
+## Daily check-in
+
+Administrators and the console can use `/crown checkin <player>` with `crown.admin.checkin` (OP level 3 without LP). The reward belongs to the target player and shares their daily limit.
+
+Use `/crown checkin` once per calendar day to receive title coins. The LuckPerms node is `crown.command.checkin` (available to ordinary players unless denied).
+
+Configure `config/crown/config.yml`:
+
+```yaml
+check-in:
+  enabled: true
+  reward-minimum: 0
+  reward-maximum: 50
+  reward-chance-percent: 100
+  time-zone: "Asia/Shanghai"
+```
+
+| Setting | Meaning |
+|---|---|
+| `enabled` | Enable daily check-in |
+| `reward-minimum` / `reward-maximum` | Inclusive integer range, e.g. 0–50; equal values give a fixed reward |
+| `reward-chance-percent` | Integer 0–100; 100 always rewards, 30 gives a 30% chance |
+| `time-zone` | Calendar-day boundary; use an IANA zone such as Asia/Shanghai or UTC |
+
+A losing roll consumes that day's check-in. Claims survive restarts and reloads; OP cannot claim twice. If the reward exceeds the balance limit, no claim or credit is saved and the player can retry after spending coins. Run `/crown reload` after editing settings. Use one stable time zone to avoid moving the daily boundary.
 
 ## Product setup
 
@@ -217,6 +249,10 @@ display:
 | `crown.command.buy` | Confirm GUI purchases |
 | `crown.command.custom` | Use the custom-title flow |
 | `crown.command.coin` | Check the personal coin balance |
+| `crown.command.checkin` | Claim a daily check-in reward |
+| `crown.admin.checkin` | Check in for another player |
+| `crown.command.checkin` | Claim a daily check-in reward |
+| `crown.admin.checkin` | Check in for another player |
 | `crown.command.card` | Redeem a title card |
 | `crown.admin.coin` | Use `give`, `take`, `set`, and `look` |
 | `crown.admin.reload` | Reload configuration and GUI settings |

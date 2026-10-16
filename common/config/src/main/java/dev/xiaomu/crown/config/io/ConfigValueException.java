@@ -11,11 +11,7 @@ public final class ConfigValueException extends IllegalArgumentException {
         this.path = java.util.Objects.requireNonNull(path, "path");
     }
 
-    public ConfigValueException(
-            String path,
-            String message,
-            Throwable cause
-    ) {
+    public ConfigValueException(String path, String message, Throwable cause) {
         super(path + ": " + message, cause);
         this.path = java.util.Objects.requireNonNull(path, "path");
     }

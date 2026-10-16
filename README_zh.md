@@ -1,5 +1,7 @@
 # Crown
 
+![Crown](common/config/src/main/resources/assets/crown/logo.svg)
+
 English documentation: [README.md](README.md)
 
 Crown 是一个面向 Fabric 服务端的称号商店和称号仓库模组。玩家可以通过箱子式 GUI 浏览、购买、自定义、佩戴和删除称号，客户端无需安装 Crown。
@@ -8,8 +10,8 @@ Crown 是一个面向 Fabric 服务端的称号商店和称号仓库模组。玩
 
 ## 安装
 
-1. 使用 Java 25、Fabric Loader 0.19.3 或更高版本，以及对应 Minecraft 版本的 Fabric API。
-2. 将匹配 Minecraft 版本的 Crown JAR 放入服务端 `mods` 文件夹。当前支持 26.1、26.1.1、26.1.2 和 26.2，版本包不能混用。
+1. 使用 Java 25、Fabric Loader 0.19.5 或更高版本，以及对应 Minecraft 版本的 Fabric API。26.3 需要该游戏版本对应的 Fabric API 0.162.0 或更高版本。
+2. 将匹配 Minecraft 版本的 Crown JAR 放入服务端 `mods` 文件夹。当前支持 26.1、26.1.1、26.1.2、26.2 和 26.3，版本包不能混用。
 3. 首次启动服务器。Crown 会创建 `config/crown/`，默认使用 SQLite。
 4. LuckPerms 和 Text Placeholder API 是可选集成。GUI、颜色解析库和数据库驱动已内置。
 5. 配置称号显示。默认模式会向外部模组提供变量；如果希望 Crown 直接显示称号，请在 `config.yml` 中将对应频道设置为 `vanilla`。
@@ -26,6 +28,10 @@ Crown 是一个面向 Fabric 服务端的称号商店和称号仓库模组。玩
 | `/crown warehouse` | 打开称号仓库 |
 | `/crown custom` | 创建自定义称号 |
 | `/crown balance` | 查看自己的称号币余额 |
+| `/crown checkin` | 签到领取今天的随机称号币 |
+| `/crown checkin <玩家>` | 管理员为指定玩家代签到 |
+| `/crown checkin` | 签到领取今天的随机称号币 |
+| `/crown checkin <玩家>` | 管理员为指定玩家代签到 |
 | `/crown give <玩家> <数量>` | 发放称号币 |
 | `/crown take <玩家> <数量>` | 扣除称号币，最低扣到 0 |
 | `/crown set <玩家> <数量>` | 设置玩家称号币余额 |
@@ -34,6 +40,32 @@ Crown 是一个面向 Fabric 服务端的称号商店和称号仓库模组。玩
 | `/crown reload` | 重载语言、商品和 GUI 设置 |
 
 玩家通过 GUI 购买和佩戴称号。模组不再注册 `/buy`、`/equip`、`/coin` 或旧版仓库命令。
+
+## 每日签到
+
+管理员或控制台使用 `/crown checkin <玩家>` 代签到，权限为 `crown.admin.checkin`（未安装 LP 时需要 OP 等级 3）。奖励发给目标玩家，并与目标玩家自己的签到共用每日次数。
+
+玩家使用 `/crown checkin` 签到，每个自然日一次。LuckPerms 权限节点为 `crown.command.checkin`，普通玩家默认可用，LP 明确拒绝时不可用。
+
+在 `config/crown/config.yml` 中配置：
+
+```yaml
+check-in:
+  enabled: true
+  reward-minimum: 0
+  reward-maximum: 50
+  reward-chance-percent: 100
+  time-zone: "Asia/Shanghai"
+```
+
+| 配置项 | 说明 |
+|---|---|
+| `enabled` | 是否启用每日签到 |
+| `reward-minimum` / `reward-maximum` | 非负整数范围，包含两端，例如 0～50；两者相同则为固定奖励 |
+| `reward-chance-percent` | 0–100 的整数，100 表示必得，30 表示 30% 概率 |
+| `time-zone` | 每日零点依据的时区，例如 Asia/Shanghai 或 UTC |
+
+未中奖也会消耗当天签到次数。签到记录在重启、重载后保留，OP 也不能重复领取。奖励超过余额上限时不记录签到、不发币，玩家消费后可以重试。修改配置后执行 `/crown reload`。建议固定时区，避免改变每日分界时间。
 
 ## 商品设置
 
@@ -72,7 +104,7 @@ purchase:
   maximum-pending-orders-per-player: 1
   maximum-owned-titles-per-player: 20
 
-delete:
+deletion:
   refund-enabled: true
   refund-percent: 100
   refund-expired: false
@@ -111,6 +143,10 @@ display:
 | `crown.command.buy` | 确认 GUI 购买 |
 | `crown.command.custom` | 使用自定义称号流程 |
 | `crown.command.coin` | 查看个人称号币余额 |
+| `crown.command.checkin` | 每日签到 |
+| `crown.admin.checkin` | 为指定玩家代签到 |
+| `crown.command.checkin` | 每日签到 |
+| `crown.admin.checkin` | 为指定玩家代签到 |
 | `crown.command.card` | 兑换称号卡 |
 | `crown.admin.coin` | 使用 `give`、`take`、`set` 和 `look` |
 | `crown.admin.reload` | 重载配置和 GUI 设置 |

@@ -12,14 +12,10 @@ import java.util.Objects;
 public final class JdbcSchema {
     public static final int VERSION = 1;
 
-    private JdbcSchema() {
-    }
+    private JdbcSchema() {}
 
-    public static int initialize(
-            Connection connection,
-            JdbcDialect dialect,
-            TableNames tables
-    ) throws SQLException {
+    public static int initialize(Connection connection, JdbcDialect dialect, TableNames tables)
+            throws SQLException {
         Objects.requireNonNull(connection, "connection");
         Objects.requireNonNull(dialect, "dialect");
         Objects.requireNonNull(tables, "tables");
@@ -28,8 +24,7 @@ public final class JdbcSchema {
         if (tableExists(connection, tables.schemaVersion())) {
             int existing = readVersion(connection, tables);
             if (existing != VERSION) {
-                throw new SQLException(
-                        "Unsupported Crown schema version: " + existing);
+                throw new SQLException("Unsupported Crown schema version: " + existing);
             }
         }
 
@@ -40,13 +35,26 @@ public final class JdbcSchema {
         String largeText = dialect.largeText();
 
         try (Statement statement = connection.createStatement()) {
-            statement.executeUpdate("""
+            statement.executeUpdate(
+                    """
+                    CREATE TABLE IF NOT EXISTS %s (
+                        player_uuid %s NOT NULL,
+                        claim_date %s NOT NULL,
+                        reward BIGINT NOT NULL,
+                        PRIMARY KEY (player_uuid, claim_date)
+                    )
+                    """
+                            .formatted(tables.checkIns(), key36, key64));
+            statement.executeUpdate(
+                    """
                     CREATE TABLE IF NOT EXISTS %s (
                         version INTEGER NOT NULL
                     )
-                    """.formatted(tables.schemaVersion()));
+                    """
+                            .formatted(tables.schemaVersion()));
 
-            statement.executeUpdate("""
+            statement.executeUpdate(
+                    """
                     CREATE TABLE IF NOT EXISTS %s (
                         player_uuid %s PRIMARY KEY,
                         last_known_name %s NOT NULL,
@@ -56,10 +64,11 @@ public final class JdbcSchema {
                         created_at BIGINT NOT NULL,
                         updated_at BIGINT NOT NULL
                     )
-                    """.formatted(
-                    tables.players(), key36, key64, key64, key36));
+                    """
+                            .formatted(tables.players(), key36, key64, key64, key36));
 
-            statement.executeUpdate("""
+            statement.executeUpdate(
+                    """
                     CREATE TABLE IF NOT EXISTS %s (
                         order_id %s PRIMARY KEY,
                         player_uuid %s NOT NULL,
@@ -77,12 +86,22 @@ public final class JdbcSchema {
                         FOREIGN KEY (player_uuid)
                             REFERENCES %s(player_uuid)
                     )
-                    """.formatted(
-                    tables.purchaseOrders(), key36, key36,
-                    key64, key64, key64, largeText,
-                    key64, key36, key128, tables.players()));
+                    """
+                            .formatted(
+                                    tables.purchaseOrders(),
+                                    key36,
+                                    key36,
+                                    key64,
+                                    key64,
+                                    key64,
+                                    largeText,
+                                    key64,
+                                    key36,
+                                    key128,
+                                    tables.players()));
 
-            statement.executeUpdate("""
+            statement.executeUpdate(
+                    """
                     CREATE TABLE IF NOT EXISTS %s (
                         entry_id %s PRIMARY KEY,
                         player_uuid %s NOT NULL,
@@ -103,13 +122,25 @@ public final class JdbcSchema {
                         FOREIGN KEY (purchase_order_id)
                             REFERENCES %s(order_id)
                     )
-                    """.formatted(
-                    tables.ownedTitles(), key36, key36, key64,
-                    key64, largeText, largeText, largeText, key192,
-                    key36, key64, key192, tables.players(),
-                    tables.purchaseOrders()));
+                    """
+                            .formatted(
+                                    tables.ownedTitles(),
+                                    key36,
+                                    key36,
+                                    key64,
+                                    key64,
+                                    largeText,
+                                    largeText,
+                                    largeText,
+                                    key192,
+                                    key36,
+                                    key64,
+                                    key192,
+                                    tables.players(),
+                                    tables.purchaseOrders()));
 
-            statement.executeUpdate("""
+            statement.executeUpdate(
+                    """
                     CREATE TABLE IF NOT EXISTS %s (
                         ledger_id %s,
                         player_uuid %s NOT NULL,
@@ -125,22 +156,30 @@ public final class JdbcSchema {
                         FOREIGN KEY (order_id)
                             REFERENCES %s(order_id)
                     )
-                    """.formatted(
-                    tables.titleCoinLedger(),
-                    dialect.autoIncrementId(),
-                    key36, key192, key128, key36,
-                    tables.players(), tables.purchaseOrders()));
+                    """
+                            .formatted(
+                                    tables.titleCoinLedger(),
+                                    dialect.autoIncrementId(),
+                                    key36,
+                                    key192,
+                                    key128,
+                                    key36,
+                                    tables.players(),
+                                    tables.purchaseOrders()));
 
-            statement.executeUpdate("""
+            statement.executeUpdate(
+                    """
                     CREATE TABLE IF NOT EXISTS %s (
                         definition_id %s PRIMARY KEY,
                         sold_count BIGINT NOT NULL,
                         reserved_count BIGINT NOT NULL DEFAULT 0,
                         revision BIGINT NOT NULL
                     )
-                    """.formatted(tables.saleCounters(), key64));
+                    """
+                            .formatted(tables.saleCounters(), key64));
 
-            statement.executeUpdate("""
+            statement.executeUpdate(
+                    """
                     CREATE TABLE IF NOT EXISTS %s (
                         card_token %s PRIMARY KEY,
                         definition_id %s NOT NULL,
@@ -151,11 +190,11 @@ public final class JdbcSchema {
                         redeemed_by %s NULL,
                         redeemed_at BIGINT NULL
                     )
-                    """.formatted(
-                    tables.cards(), key128, key64, key64,
-                    key192, key36));
+                    """
+                            .formatted(tables.cards(), key128, key64, key64, key192, key36));
 
-            statement.executeUpdate("""
+            statement.executeUpdate(
+                    """
                     CREATE TABLE IF NOT EXISTS %s (
                         audit_id %s,
                         actor %s NOT NULL,
@@ -165,87 +204,112 @@ public final class JdbcSchema {
                         details_json %s NOT NULL,
                         created_at BIGINT NOT NULL
                     )
-                    """.formatted(
-                    tables.audit(), dialect.autoIncrementId(),
-                    key192, key128, key36, key128, largeText));
+                    """
+                            .formatted(
+                                    tables.audit(),
+                                    dialect.autoIncrementId(),
+                                    key192,
+                                    key128,
+                                    key36,
+                                    key128,
+                                    largeText));
         }
 
-        createIndex(connection, dialect,
+        createIndex(
+                connection,
+                dialect,
                 tables.ownedTitles() + "_player_idx",
-                "CREATE INDEX " + tables.ownedTitles() + "_player_idx"
-                        + " ON " + tables.ownedTitles()
+                "CREATE INDEX "
+                        + tables.ownedTitles()
+                        + "_player_idx"
+                        + " ON "
+                        + tables.ownedTitles()
                         + "(player_uuid, status, acquired_at)");
-        createIndex(connection, dialect,
+        createIndex(
+                connection,
+                dialect,
                 tables.purchaseOrders() + "_player_idx",
-                "CREATE INDEX " + tables.purchaseOrders() + "_player_idx"
-                        + " ON " + tables.purchaseOrders()
+                "CREATE INDEX "
+                        + tables.purchaseOrders()
+                        + "_player_idx"
+                        + " ON "
+                        + tables.purchaseOrders()
                         + "(player_uuid, state, created_at)");
-        createIndex(connection, dialect,
+        createIndex(
+                connection,
+                dialect,
                 tables.purchaseOrders() + "_state_idx",
-                "CREATE INDEX " + tables.purchaseOrders() + "_state_idx"
-                        + " ON " + tables.purchaseOrders()
+                "CREATE INDEX "
+                        + tables.purchaseOrders()
+                        + "_state_idx"
+                        + " ON "
+                        + tables.purchaseOrders()
                         + "(state, updated_at)");
-        createIndex(connection, dialect,
+        createIndex(
+                connection,
+                dialect,
                 tables.titleCoinLedger() + "_player_idx",
-                "CREATE INDEX " + tables.titleCoinLedger() + "_player_idx"
-                        + " ON " + tables.titleCoinLedger()
+                "CREATE INDEX "
+                        + tables.titleCoinLedger()
+                        + "_player_idx"
+                        + " ON "
+                        + tables.titleCoinLedger()
                         + "(player_uuid, created_at)");
-        createIndex(connection, dialect,
+        createIndex(
+                connection,
+                dialect,
                 tables.audit() + "_target_idx",
-                "CREATE INDEX " + tables.audit() + "_target_idx"
-                        + " ON " + tables.audit()
+                "CREATE INDEX "
+                        + tables.audit()
+                        + "_target_idx"
+                        + " ON "
+                        + tables.audit()
                         + "(target_id, created_at)");
 
         int existing = readVersion(connection, tables);
         if (existing == 0) {
-            try (PreparedStatement insert = connection.prepareStatement(
-                    "INSERT INTO " + tables.schemaVersion()
-                            + "(version) VALUES (?)")) {
+            try (PreparedStatement insert =
+                    connection.prepareStatement(
+                            "INSERT INTO " + tables.schemaVersion() + "(version) VALUES (?)")) {
                 insert.setInt(1, VERSION);
                 insert.executeUpdate();
             }
         } else if (existing != VERSION) {
-            throw new SQLException(
-                    "Unsupported Crown schema version: " + existing);
+            throw new SQLException("Unsupported Crown schema version: " + existing);
         }
         return VERSION;
     }
 
-    public static int readVersion(
-            Connection connection,
-            TableNames tables
-    ) throws SQLException {
+    public static int readVersion(Connection connection, TableNames tables) throws SQLException {
         try (Statement statement = connection.createStatement();
-             ResultSet result = statement.executeQuery(
-                     "SELECT version FROM " + tables.schemaVersion())) {
+                ResultSet result =
+                        statement.executeQuery("SELECT version FROM " + tables.schemaVersion())) {
             if (!result.next()) {
                 return 0;
             }
             int version = result.getInt(1);
             if (result.next()) {
-                throw new SQLException(
-                        "Crown schema version table has multiple rows");
+                throw new SQLException("Crown schema version table has multiple rows");
             }
             return version;
         }
     }
 
-    private static boolean tableExists(
-            Connection connection,
-            String table
-    ) throws SQLException {
+    private static boolean tableExists(Connection connection, String table) throws SQLException {
         try (Statement statement = connection.createStatement();
-             ResultSet result = statement.executeQuery(
-                     "SELECT 1 FROM " + table + " WHERE 1 = 0")) {
+                ResultSet result =
+                        statement.executeQuery("SELECT 1 FROM " + table + " WHERE 1 = 0")) {
             result.getMetaData();
             return true;
         } catch (SQLException exception) {
-            String message = exception.getMessage() == null
-                    ? ""
-                    : exception.getMessage().toLowerCase(Locale.ROOT);
-            boolean missing = exception.getErrorCode() == 1146
-                    || "42S02".equals(exception.getSQLState())
-                    || message.contains("no such table");
+            String message =
+                    exception.getMessage() == null
+                            ? ""
+                            : exception.getMessage().toLowerCase(Locale.ROOT);
+            boolean missing =
+                    exception.getErrorCode() == 1146
+                            || "42S02".equals(exception.getSQLState())
+                            || message.contains("no such table");
             if (missing) {
                 return false;
             }
@@ -254,26 +318,21 @@ public final class JdbcSchema {
     }
 
     private static void createIndex(
-            Connection connection,
-            JdbcDialect dialect,
-            String name,
-            String sql
-    ) throws SQLException {
-        String command = dialect == JdbcDialect.SQLITE
-                ? sql.replace(
-                "CREATE INDEX ", "CREATE INDEX IF NOT EXISTS ")
-                : sql;
+            Connection connection, JdbcDialect dialect, String name, String sql)
+            throws SQLException {
+        String command =
+                dialect == JdbcDialect.SQLITE
+                        ? sql.replace("CREATE INDEX ", "CREATE INDEX IF NOT EXISTS ")
+                        : sql;
         try (Statement statement = connection.createStatement()) {
             statement.executeUpdate(command);
         } catch (SQLException exception) {
             boolean duplicateMySqlIndex =
                     dialect == JdbcDialect.MYSQL
                             && (exception.getErrorCode() == 1061
-                            || "42000".equals(exception.getSQLState()));
+                                    || "42000".equals(exception.getSQLState()));
             if (!duplicateMySqlIndex) {
-                throw new SQLException(
-                        "Could not create Crown index " + name,
-                        exception);
+                throw new SQLException("Could not create Crown index " + name, exception);
             }
         }
     }

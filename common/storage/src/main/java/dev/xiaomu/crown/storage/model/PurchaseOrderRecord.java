@@ -23,57 +23,42 @@ public record PurchaseOrderRecord(
         String failureCode,
         boolean inventoryReserved,
         Instant createdAt,
-        Instant updatedAt
-) {
+        Instant updatedAt) {
     public PurchaseOrderRecord {
         orderId = Objects.requireNonNull(orderId, "orderId");
         playerId = Objects.requireNonNull(playerId, "playerId");
-        productType = Objects.requireNonNull(
-                productType, "productType");
-        paymentType = Objects.requireNonNull(
-                paymentType, "paymentType");
-        titleSnapshotJson = Objects.requireNonNull(
-                titleSnapshotJson, "titleSnapshotJson");
+        productType = Objects.requireNonNull(productType, "productType");
+        paymentType = Objects.requireNonNull(paymentType, "paymentType");
+        titleSnapshotJson = Objects.requireNonNull(titleSnapshotJson, "titleSnapshotJson");
         state = Objects.requireNonNull(state, "state");
         createdAt = Objects.requireNonNull(createdAt, "createdAt");
         updatedAt = Objects.requireNonNull(updatedAt, "updatedAt");
         if (updatedAt.isBefore(createdAt)) {
-            throw new IllegalArgumentException(
-                    "Order updated time precedes creation");
+            throw new IllegalArgumentException("Order updated time precedes creation");
         }
-        if (titleSnapshotJson.isBlank()
-                || titleSnapshotJson.length() > 1_048_576) {
-            throw new IllegalArgumentException(
-                    "Order title snapshot is blank or too large");
+        if (titleSnapshotJson.isBlank() || titleSnapshotJson.length() > 1_048_576) {
+            throw new IllegalArgumentException("Order title snapshot is blank or too large");
         }
         if (amountMinor < 0) {
-            throw new IllegalArgumentException(
-                    "Order amount cannot be negative");
+            throw new IllegalArgumentException("Order amount cannot be negative");
         }
         if (paymentType == PaymentType.FREE && amountMinor != 0) {
-            throw new IllegalArgumentException(
-                    "Free order amount must be zero");
+            throw new IllegalArgumentException("Free order amount must be zero");
         }
         if (paymentType != PaymentType.FREE && amountMinor <= 0) {
-            throw new IllegalArgumentException(
-                    "Paid order amount must be positive");
+            throw new IllegalArgumentException("Paid order amount must be positive");
         }
         if (productType == ProductType.CATALOG && definitionId == null) {
-            throw new IllegalArgumentException(
-                    "Catalog order requires definition ID");
+            throw new IllegalArgumentException("Catalog order requires definition ID");
         }
         if (productType == ProductType.CUSTOM && definitionId != null) {
-            throw new IllegalArgumentException(
-                    "Custom order cannot have definition ID");
+            throw new IllegalArgumentException("Custom order cannot have definition ID");
         }
-        if (failureCode != null
-                && (failureCode.isBlank() || failureCode.length() > 128)) {
-            throw new IllegalArgumentException(
-                    "Invalid order failure code");
+        if (failureCode != null && (failureCode.isBlank() || failureCode.length() > 128)) {
+            throw new IllegalArgumentException("Invalid order failure code");
         }
         if (state == PurchaseOrderState.GRANTED && entryId == null) {
-            throw new IllegalArgumentException(
-                    "Granted order requires entry ID");
+            throw new IllegalArgumentException("Granted order requires entry ID");
         }
     }
 

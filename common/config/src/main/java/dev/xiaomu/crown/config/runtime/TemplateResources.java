@@ -8,21 +8,17 @@ import java.nio.charset.StandardCharsets;
 final class TemplateResources {
     private static final int MAX_TEMPLATE_BYTES = 1_048_576;
 
-    private TemplateResources() {
-    }
+    private TemplateResources() {}
 
     static String read(String relativePath) throws IOException {
-        String resource = "/crown/defaults/" + relativePath;
-        try (InputStream stream =
-                     TemplateResources.class.getResourceAsStream(resource)) {
+        String resource = "/assets/crown/defaults/" + relativePath;
+        try (InputStream stream = TemplateResources.class.getResourceAsStream(resource)) {
             if (stream == null) {
-                throw new IOException(
-                        "Missing bundled Crown resource: " + resource);
+                throw new IOException("Missing bundled Crown resource: " + resource);
             }
             byte[] bytes = stream.readNBytes(MAX_TEMPLATE_BYTES + 1);
             if (bytes.length > MAX_TEMPLATE_BYTES) {
-                throw new IOException(
-                        "Bundled Crown resource is too large: " + resource);
+                throw new IOException("Bundled Crown resource is too large: " + resource);
             }
             return new String(bytes, StandardCharsets.UTF_8);
         }

@@ -17,27 +17,22 @@ public record GuiItemTemplate(
         boolean hideTooltip,
         Integer customModelData,
         String sound,
-        boolean closeAfterAction
-) {
-    private static final Pattern ITEM_VARIABLE =
-            Pattern.compile("\\{[a-z0-9_]{1,64}}");
+        boolean closeAfterAction) {
+    private static final Pattern ITEM_VARIABLE = Pattern.compile("\\{[a-z0-9_]{1,64}}");
 
     public GuiItemTemplate {
         item = requireItem(item);
         name = requireText(name, "item name", 2_048);
         lore = List.copyOf(Objects.requireNonNull(lore, "lore"));
         if (lore.size() > 128
-                || lore.stream().anyMatch(line ->
-                line == null || line.length() > 4_096)) {
+                || lore.stream().anyMatch(line -> line == null || line.length() > 4_096)) {
             throw new IllegalArgumentException("Invalid GUI item lore");
         }
         if (amount < 1 || amount > 99) {
-            throw new IllegalArgumentException(
-                    "GUI item amount must be between 1 and 99");
+            throw new IllegalArgumentException("GUI item amount must be between 1 and 99");
         }
         if (customModelData != null && customModelData < 0) {
-            throw new IllegalArgumentException(
-                    "Custom model data cannot be negative");
+            throw new IllegalArgumentException("Custom model data cannot be negative");
         }
         sound = Objects.requireNonNull(sound, "sound");
         if (!sound.isEmpty()) {
@@ -45,11 +40,9 @@ public record GuiItemTemplate(
         }
     }
 
-
     public Optional<Integer> customModelDataValue() {
         return Optional.ofNullable(customModelData);
     }
-
 
     private static String requireItem(String value) {
         Objects.requireNonNull(value, "item");
@@ -59,11 +52,7 @@ public record GuiItemTemplate(
         return value;
     }
 
-    private static String requireText(
-            String value,
-            String name,
-            int maximumLength
-    ) {
+    private static String requireText(String value, String name, int maximumLength) {
         Objects.requireNonNull(value, name);
         if (value.length() > maximumLength) {
             throw new IllegalArgumentException(name + " is too long");

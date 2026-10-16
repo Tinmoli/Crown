@@ -20,13 +20,11 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * 对 titles.yml 执行经过完整目录校验的原子编辑。
  *
- * <p>同一文件的编辑会串行执行。候选配置必须先通过正式
- * {@link TitleCatalogParser} 验证才会落盘；若后续内部重载失败，则恢复
- * 原文件并再次加载旧配置，防止磁盘和运行时状态分裂。</p>
+ * <p>同一文件的编辑会串行执行。候选配置必须先通过正式 {@link TitleCatalogParser} 验证才会落盘；若后续内部重载失败，则恢复
+ * 原文件并再次加载旧配置，防止磁盘和运行时状态分裂。
  */
 public final class TitleCatalogEditor {
-    private static final ConcurrentHashMap<Path, Object> LOCKS =
-            new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<Path, Object> LOCKS = new ConcurrentHashMap<>();
 
     private final SafeYaml yaml;
     private final TitleCatalogParser parser;
@@ -40,36 +38,34 @@ public final class TitleCatalogEditor {
         this.parser = Objects.requireNonNull(parser, "parser");
     }
 
-    public void create(
-            Path titlesFile,
-            CoreSettings.Safety safety,
-            String id,
-            ReloadAction reload
-    ) throws IOException {
+    public void create(Path titlesFile, CoreSettings.Safety safety, String id, ReloadAction reload)
+            throws IOException {
         String validId = validateId(id);
-        edit(titlesFile, safety, root -> {
-            Map<String, Object> titles = titles(root);
-            if (titles.containsKey(validId)) {
-                throw new IllegalArgumentException(
-                        "Title already exists: " + validId);
-            }
-            titles.put(validId, draft(validId));
-        }, reload);
+        edit(
+                titlesFile,
+                safety,
+                root -> {
+                    Map<String, Object> titles = titles(root);
+                    if (titles.containsKey(validId)) {
+                        throw new IllegalArgumentException("Title already exists: " + validId);
+                    }
+                    titles.put(validId, draft(validId));
+                },
+                reload);
     }
 
-    public void delete(
-            Path titlesFile,
-            CoreSettings.Safety safety,
-            String id,
-            ReloadAction reload
-    ) throws IOException {
+    public void delete(Path titlesFile, CoreSettings.Safety safety, String id, ReloadAction reload)
+            throws IOException {
         String validId = validateId(id);
-        edit(titlesFile, safety, root -> {
-            if (titles(root).remove(validId) == null) {
-                throw new IllegalArgumentException(
-                        "Unknown title: " + validId);
-            }
-        }, reload);
+        edit(
+                titlesFile,
+                safety,
+                root -> {
+                    if (titles(root).remove(validId) == null) {
+                        throw new IllegalArgumentException("Unknown title: " + validId);
+                    }
+                },
+                reload);
     }
 
     public void set(
@@ -78,52 +74,41 @@ public final class TitleCatalogEditor {
             String id,
             String field,
             Object value,
-            ReloadAction reload
-    ) throws IOException {
+            ReloadAction reload)
+            throws IOException {
         var single = new LinkedHashMap<String, Object>();
         single.put(Objects.requireNonNull(field, "field"), value);
-        setAll(
-                titlesFile,
-                safety,
-                id,
-                single,
-                reload);
+        setAll(titlesFile, safety, id, single, reload);
     }
 
-    /**
-     * 在同一个候选目录中原子修改多个字段。用于支付方式、有效期等必须
-     * 联动更新的字段，避免产生无法通过正式解析器的中间状态。
-     */
+    /** 在同一个候选目录中原子修改多个字段。用于支付方式、有效期等必须 联动更新的字段，避免产生无法通过正式解析器的中间状态。 */
     public void setAll(
             Path titlesFile,
             CoreSettings.Safety safety,
             String id,
             Map<String, Object> fields,
-            ReloadAction reload
-    ) throws IOException {
+            ReloadAction reload)
+            throws IOException {
         String validId = validateId(id);
         Objects.requireNonNull(fields, "fields");
         if (fields.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "At least one title field is required");
+            throw new IllegalArgumentException("At least one title field is required");
         }
         var copied = new LinkedHashMap<String, Object>();
-        fields.forEach((field, value) -> copied.put(
-                Objects.requireNonNull(field, "field"), value));
-        edit(titlesFile, safety, root -> {
-            Map<String, Object> definition =
-                    definition(root, validId);
-            copied.forEach((field, value) ->
-                    putPath(definition, field, value));
-        }, reload);
+        fields.forEach((field, value) -> copied.put(Objects.requireNonNull(field, "field"), value));
+        edit(
+                titlesFile,
+                safety,
+                root -> {
+                    Map<String, Object> definition = definition(root, validId);
+                    copied.forEach((field, value) -> putPath(definition, field, value));
+                },
+                reload);
     }
 
     public void edit(
-            Path titlesFile,
-            CoreSettings.Safety safety,
-            Mutation mutation,
-            ReloadAction reload
-    ) throws IOException {
+            Path titlesFile, CoreSettings.Safety safety, Mutation mutation, ReloadAction reload)
+            throws IOException {
         Objects.requireNonNull(titlesFile, "titlesFile");
         Objects.requireNonNull(safety, "safety");
         Objects.requireNonNull(mutation, "mutation");
@@ -137,11 +122,8 @@ public final class TitleCatalogEditor {
     }
 
     private void editLocked(
-            Path file,
-            CoreSettings.Safety safety,
-            Mutation mutation,
-            ReloadAction reload
-    ) throws IOException {
+            Path file, CoreSettings.Safety safety, Mutation mutation, ReloadAction reload)
+            throws IOException {
         String original = Files.readString(file, StandardCharsets.UTF_8);
         Map<String, Object> root = yaml.loadMap(original);
         String normalizedBefore = yaml.dump(root);
@@ -151,13 +133,11 @@ public final class TitleCatalogEditor {
         parser.parse(root, safety);
         String normalizedAfter = yaml.dump(root);
         if (normalizedAfter.equals(normalizedBefore)) {
-            throw new IllegalArgumentException(
-                    "The requested title change has no effect");
+            throw new IllegalArgumentException("The requested title change has no effect");
         }
 
         // 使用当前文件作为注释模板，规范化字段的同时恢复现有标准注释。
-        String candidate = TemplateComments.apply(
-                original, normalizedAfter);
+        String candidate = TemplateComments.apply(original, normalizedAfter);
         AtomicFiles.writeUtf8Atomically(file, candidate);
         try {
             reload.run();
@@ -167,11 +147,9 @@ public final class TitleCatalogEditor {
                 AtomicFiles.writeUtf8Atomically(file, original);
                 reload.run();
             } catch (Exception rollback) {
-                rollbackFailure = asIOException(
-                        "Failed to restore title catalog", rollback);
+                rollbackFailure = asIOException("Failed to restore title catalog", rollback);
             }
-            IOException result = asIOException(
-                    "Failed to reload edited title catalog", failure);
+            IOException result = asIOException("Failed to reload edited title catalog", failure);
             if (rollbackFailure != null) {
                 result.addSuppressed(rollbackFailure);
             }
@@ -183,17 +161,13 @@ public final class TitleCatalogEditor {
     private static Map<String, Object> titles(Map<String, Object> root) {
         Object configured = root.get("titles");
         if (!(configured instanceof Map<?, ?> map)) {
-            throw new IllegalArgumentException(
-                    "titles.yml root must contain a titles mapping");
+            throw new IllegalArgumentException("titles.yml root must contain a titles mapping");
         }
         return (Map<String, Object>) map;
     }
 
     @SuppressWarnings("unchecked")
-    private static Map<String, Object> definition(
-            Map<String, Object> root,
-            String id
-    ) {
+    private static Map<String, Object> definition(Map<String, Object> root, String id) {
         Object configured = titles(root).get(id);
         if (!(configured instanceof Map<?, ?> map)) {
             throw new IllegalArgumentException("Unknown title: " + id);
@@ -202,26 +176,34 @@ public final class TitleCatalogEditor {
     }
 
     @SuppressWarnings("unchecked")
-    private static void putPath(
-            Map<String, Object> root,
-            String path,
-            Object value
-    ) {
-        if (!java.util.Set.of("enabled", "visible", "category", "text", "prefix", "suffix",
-                "icon", "description", "price", "duration.type", "duration.days",
-                "requirement.permission", "requirement.deny-if-missing-permission",
-                "sale.starts-at", "sale.ends-at", "sale.global-stock", "sale.per-player-limit")
+    private static void putPath(Map<String, Object> root, String path, Object value) {
+        if (!java.util.Set.of(
+                        "enabled",
+                        "visible",
+                        "category",
+                        "text",
+                        "prefix",
+                        "suffix",
+                        "icon",
+                        "description",
+                        "price",
+                        "duration.type",
+                        "duration.days",
+                        "requirement.permission",
+                        "requirement.deny-if-missing-permission",
+                        "sale.starts-at",
+                        "sale.ends-at",
+                        "sale.global-stock",
+                        "sale.per-player-limit")
                 .contains(path)) {
-            throw new IllegalArgumentException(
-                    "Invalid title field path: " + path);
+            throw new IllegalArgumentException("Invalid title field path: " + path);
         }
         String[] parts = path.split("\\.");
         Map<String, Object> current = root;
         for (int index = 0; index < parts.length - 1; index++) {
             Object child = current.computeIfAbsent(parts[index], ignored -> new LinkedHashMap<>());
             if (!(child instanceof Map<?, ?> map)) {
-                throw new IllegalArgumentException(
-                        "Unknown title field: " + path);
+                throw new IllegalArgumentException("Unknown title field: " + path);
             }
             current = (Map<String, Object>) map;
         }
@@ -263,10 +245,7 @@ public final class TitleCatalogEditor {
         return id;
     }
 
-    private static IOException asIOException(
-            String message,
-            Exception failure
-    ) {
+    private static IOException asIOException(String message, Exception failure) {
         return failure instanceof IOException io
                 ? new IOException(message, io)
                 : new IOException(message, failure);

@@ -1,5 +1,5 @@
 plugins {
-    id "net.fabricmc.fabric-loom" version "1.16.3"
+    id "net.fabricmc.fabric-loom" version "1.17.21"
 }
 
 // Only values that differ by Minecraft target belong in this module.

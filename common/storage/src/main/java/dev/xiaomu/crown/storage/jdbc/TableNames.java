@@ -12,16 +12,13 @@ public record TableNames(
         String titleCoinLedger,
         String saleCounters,
         String cards,
-        String audit
-) {
-    private static final Pattern PREFIX =
-            Pattern.compile("[A-Za-z0-9_]{1,24}");
+        String audit) {
+    private static final Pattern PREFIX = Pattern.compile("[A-Za-z0-9_]{1,24}");
 
     public static TableNames withPrefix(String prefix) {
         Objects.requireNonNull(prefix, "prefix");
         if (!PREFIX.matcher(prefix).matches()) {
-            throw new IllegalArgumentException(
-                    "Invalid Crown table prefix");
+            throw new IllegalArgumentException("Invalid Crown table prefix");
         }
         return new TableNames(
                 prefix + "schema_version",
@@ -31,8 +28,7 @@ public record TableNames(
                 prefix + "title_coin_ledger",
                 prefix + "sale_counters",
                 prefix + "cards",
-                prefix + "audit"
-        );
+                prefix + "audit");
     }
 
     public TableNames {
@@ -46,11 +42,14 @@ public record TableNames(
         audit = requireIdentifier(audit);
     }
 
+    public String checkIns() {
+        return players + "_check_ins";
+    }
+
     private static String requireIdentifier(String value) {
         Objects.requireNonNull(value, "table name");
         if (!value.matches("[A-Za-z0-9_]{1,64}")) {
-            throw new IllegalArgumentException(
-                    "Invalid SQL identifier: " + value);
+            throw new IllegalArgumentException("Invalid SQL identifier: " + value);
         }
         return value;
     }

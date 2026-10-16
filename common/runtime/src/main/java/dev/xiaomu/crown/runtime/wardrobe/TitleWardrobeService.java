@@ -15,8 +15,7 @@ import java.util.UUID;
 /**
  * 称号仓库与佩戴业务。
  *
- * <p>所有方法都在存储执行器线程内同步执行，绝不触碰 Minecraft 主线程。
- * 佩戴前校验条目归属、状态与过期；佩戴当前条目返回 ALREADY_EQUIPPED。</p>
+ * <p>所有方法都在存储执行器线程内同步执行，绝不触碰 Minecraft 主线程。 佩戴前校验条目归属、状态与过期；佩戴当前条目返回 ALREADY_EQUIPPED。
  */
 public final class TitleWardrobeService {
     private final CrownRepository repository;
@@ -43,48 +42,44 @@ public final class TitleWardrobeService {
         Objects.requireNonNull(entryId, "entryId");
         Instant now = clock.instant();
 
-        OwnedTitleRecord entry = repository.findOwnedTitle(entryId)
-                .filter(record -> record.playerId().equals(playerId))
-                .orElse(null);
-        if (entry == null
-                || entry.status() != OwnedTitleStatus.ACTIVE) {
+        OwnedTitleRecord entry =
+                repository
+                        .findOwnedTitle(entryId)
+                        .filter(record -> record.playerId().equals(playerId))
+                        .orElse(null);
+        if (entry == null || entry.status() != OwnedTitleStatus.ACTIVE) {
             return EquipResult.NOT_OWNED;
         }
         if (entry.expiredAt(now)) {
             return EquipResult.EXPIRED;
         }
 
-        TitleSelection current = repository.findPlayer(playerId)
-                .map(record -> record.selection())
-                .orElse(TitleSelection.none());
+        TitleSelection current =
+                repository
+                        .findPlayer(playerId)
+                        .map(record -> record.selection())
+                        .orElse(TitleSelection.none());
         if (current.type() == SelectionType.OWNED
-                && current.ownedEntryId()
-                        .map(entryId::equals).orElse(false)) {
+                && current.ownedEntryId().map(entryId::equals).orElse(false)) {
             return EquipResult.ALREADY_EQUIPPED;
         }
 
-        boolean updated = repository.setSelection(
-                playerId, TitleSelection.owned(entryId), now);
+        boolean updated = repository.setSelection(playerId, TitleSelection.owned(entryId), now);
         return updated ? EquipResult.EQUIPPED : EquipResult.STORAGE_FAILED;
     }
 
     /** 切换到服务器默认称号。 */
     public EquipResult equipDefault(UUID playerId) {
         Objects.requireNonNull(playerId, "playerId");
-        boolean updated = repository.setSelection(
-                playerId, TitleSelection.defaultTitle(), clock.instant());
-        return updated
-                ? EquipResult.EQUIPPED_DEFAULT
-                : EquipResult.STORAGE_FAILED;
+        boolean updated =
+                repository.setSelection(playerId, TitleSelection.defaultTitle(), clock.instant());
+        return updated ? EquipResult.EQUIPPED_DEFAULT : EquipResult.STORAGE_FAILED;
     }
 
     /** 切换到不佩戴任何称号（NONE），跨重启持久保存。 */
     public EquipResult unequip(UUID playerId) {
         Objects.requireNonNull(playerId, "playerId");
-        boolean updated = repository.setSelection(
-                playerId, TitleSelection.none(), clock.instant());
-        return updated
-                ? EquipResult.UNEQUIPPED
-                : EquipResult.STORAGE_FAILED;
+        boolean updated = repository.setSelection(playerId, TitleSelection.none(), clock.instant());
+        return updated ? EquipResult.UNEQUIPPED : EquipResult.STORAGE_FAILED;
     }
 }

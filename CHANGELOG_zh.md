@@ -2,6 +2,16 @@
 
 English version: [CHANGELOG.md](CHANGELOG.md)
 
+## 未发布
+
+- 新增 Minecraft 26.3 支持，构建工具链更新至 Gradle 9.6 / Loom 1.17。
+
+- 共用各版本 Fabric 实现，拆分 SQL 记录映射。
+- 统一 Java 排版与命名，将内置资源集中到 assets/crown。
+- 新增每日签到，可配置奖励数量、奖励概率、时区和 LuckPerms 权限。
+- 支持包含上下限的随机奖励范围，以及管理员、控制台代签到，共用目标玩家每日次数。
+- README 使用仓库相对路径 Logo。
+
 ## Crown v0.1.0
 
 Crown 的第一个版本。这是一个简洁的 Minecraft 称号购买模组，使用称号币购买、佩戴和管理称号。

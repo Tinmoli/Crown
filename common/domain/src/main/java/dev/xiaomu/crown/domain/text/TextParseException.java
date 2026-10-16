@@ -7,11 +7,7 @@ public final class TextParseException extends IllegalArgumentException {
     private final TextParseError error;
     private final int sourceIndex;
 
-    public TextParseException(
-            TextParseError error,
-            String message,
-            int sourceIndex
-    ) {
+    public TextParseException(TextParseError error, String message, int sourceIndex) {
         super(message + " at source index " + sourceIndex);
         this.error = java.util.Objects.requireNonNull(error, "error");
         this.sourceIndex = sourceIndex;
@@ -28,7 +24,6 @@ public final class TextParseException extends IllegalArgumentException {
 
     /** 错误码对应的语言键后缀：小写并把下划线转连字符。 */
     public String langKeySuffix() {
-        return error.name().toLowerCase(java.util.Locale.ROOT)
-                .replace('_', '-');
+        return error.name().toLowerCase(java.util.Locale.ROOT).replace('_', '-');
     }
 }

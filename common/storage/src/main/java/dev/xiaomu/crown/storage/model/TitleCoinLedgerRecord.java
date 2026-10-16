@@ -15,18 +15,17 @@ public record TitleCoinLedgerRecord(
         String actor,
         String reason,
         UUID orderId,
-        Instant createdAt
-) {
+        Instant createdAt) {
     public TitleCoinLedgerRecord {
         if (ledgerId < 1) {
-            throw new IllegalArgumentException(
-                    "Ledger ID must be positive");
+            throw new IllegalArgumentException("Ledger ID must be positive");
         }
         playerId = Objects.requireNonNull(playerId, "playerId");
-        if (delta == 0 || balanceBefore < 0 || balanceAfter < 0
+        if (delta == 0
+                || balanceBefore < 0
+                || balanceAfter < 0
                 || Math.addExact(balanceBefore, delta) != balanceAfter) {
-            throw new IllegalArgumentException(
-                    "Invalid title coin ledger amounts");
+            throw new IllegalArgumentException("Invalid title coin ledger amounts");
         }
         actor = requireText(actor, "actor", 192);
         reason = requireText(reason, "reason", 128);
@@ -37,11 +36,7 @@ public record TitleCoinLedgerRecord(
         return Optional.ofNullable(orderId);
     }
 
-    private static String requireText(
-            String value,
-            String name,
-            int maximumLength
-    ) {
+    private static String requireText(String value, String name, int maximumLength) {
         Objects.requireNonNull(value, name);
         if (value.isBlank() || value.length() > maximumLength) {
             throw new IllegalArgumentException(name + " is invalid");

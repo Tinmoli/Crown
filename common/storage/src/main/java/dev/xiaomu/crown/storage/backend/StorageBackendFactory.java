@@ -17,19 +17,13 @@ import java.util.Objects;
 public final class StorageBackendFactory {
     private static final String SQLITE_TABLE_PREFIX = "crown_";
 
-    public StorageBackend openConfigured(
-            Path gameDirectory,
-            StorageSettings settings
-    ) {
+    public StorageBackend openConfigured(Path gameDirectory, StorageSettings settings) {
         Objects.requireNonNull(settings, "settings");
         return open(gameDirectory, settings, settings.type());
     }
 
     public StorageBackend open(
-            Path gameDirectory,
-            StorageSettings settings,
-            StorageSettings.Type type
-    ) {
+            Path gameDirectory, StorageSettings settings, StorageSettings.Type type) {
         Objects.requireNonNull(gameDirectory, "gameDirectory");
         Objects.requireNonNull(settings, "settings");
         Objects.requireNonNull(type, "type");
@@ -41,38 +35,39 @@ public final class StorageBackendFactory {
 
         if (type == StorageSettings.Type.SQLITE) {
             StorageSettings.Sqlite sqlite = settings.sqlite();
-            sqliteDatabase = resolveInsideGameDirectory(
-                    gameDirectory, sqlite.path());
+            sqliteDatabase = resolveInsideGameDirectory(gameDirectory, sqlite.path());
             createParentDirectories(sqliteDatabase);
-            connections = new SqliteConnectionFactory(
-                    sqliteDatabase,
-                    Math.toIntExact(sqlite.busyTimeout().toMillis()),
-                    sqlite.wal(),
-                    sqlite.synchronous().name());
+            connections =
+                    new SqliteConnectionFactory(
+                            sqliteDatabase,
+                            Math.toIntExact(sqlite.busyTimeout().toMillis()),
+                            sqlite.wal(),
+                            sqlite.synchronous().name());
             dialect = JdbcDialect.SQLITE;
             tables = TableNames.withPrefix(SQLITE_TABLE_PREFIX);
         } else {
             StorageSettings.Mysql mysql = settings.mysql();
             StorageSettings.Pool pool = mysql.pool();
-            connections = new MySqlConnectionFactory(
-                    mysql.host(),
-                    mysql.port(),
-                    mysql.database(),
-                    mysql.username(),
-                    mysql.password(),
-                    mysql.parameters(),
-                    pool.minimumIdle(),
-                    pool.maximumSize(),
-                    pool.connectionTimeout().toMillis(),
-                    pool.validationTimeout().toMillis(),
-                    pool.idleTimeout().toMillis(),
-                    pool.maximumLifetime().toMillis());
+            connections =
+                    new MySqlConnectionFactory(
+                            mysql.host(),
+                            mysql.port(),
+                            mysql.database(),
+                            mysql.username(),
+                            mysql.password(),
+                            mysql.parameters(),
+                            pool.minimumIdle(),
+                            pool.maximumSize(),
+                            pool.connectionTimeout().toMillis(),
+                            pool.validationTimeout().toMillis(),
+                            pool.idleTimeout().toMillis(),
+                            pool.maximumLifetime().toMillis());
             dialect = JdbcDialect.MYSQL;
             tables = TableNames.withPrefix(mysql.tablePrefix());
         }
 
-        StorageBackend backend = new StorageBackend(
-                type, connections, dialect, tables, sqliteDatabase);
+        StorageBackend backend =
+                new StorageBackend(type, connections, dialect, tables, sqliteDatabase);
         boolean initialized = false;
         try {
             backend.repository().initializeSchema();
@@ -85,16 +80,11 @@ public final class StorageBackendFactory {
         }
     }
 
-    static Path resolveInsideGameDirectory(
-            Path gameDirectory,
-            String relative
-    ) {
+    static Path resolveInsideGameDirectory(Path gameDirectory, String relative) {
         Path root = gameDirectory.toAbsolutePath().normalize();
-        Path resolved = root.resolve(relative)
-                .toAbsolutePath().normalize();
+        Path resolved = root.resolve(relative).toAbsolutePath().normalize();
         if (!resolved.startsWith(root) || resolved.equals(root)) {
-            throw new IllegalArgumentException(
-                    "SQLite database must stay inside game directory");
+            throw new IllegalArgumentException("SQLite database must stay inside game directory");
         }
         return resolved;
     }
@@ -102,15 +92,12 @@ public final class StorageBackendFactory {
     private static void createParentDirectories(Path database) {
         Path parent = database.getParent();
         if (parent == null) {
-            throw new IllegalArgumentException(
-                    "SQLite database has no parent directory");
+            throw new IllegalArgumentException("SQLite database has no parent directory");
         }
         try {
             Files.createDirectories(parent);
         } catch (IOException exception) {
-            throw new StorageException(
-                    "Could not create SQLite database directory",
-                    exception);
+            throw new StorageException("Could not create SQLite database directory", exception);
         }
     }
 }
