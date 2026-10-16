@@ -1,7 +1,5 @@
 # Crown
 
-From the repository root, run `cd 26.3` before building. This folder can also be copied and built independently.
-
 This project targets **Minecraft 26.3** (`26.3`). Each version is self-contained; this folder contains all source required for this Minecraft version.
 
 Build with `./gradlew build` (`./gradlew.bat build` on Windows). The mod JAR is written to `build/libs/`.
