@@ -36,10 +36,6 @@ dependencies {
         implementation library
         include library
     }
-
-    testImplementation platform("org.junit:junit-bom:${junit_version}")
-    testImplementation "org.junit.jupiter:junit-jupiter"
-    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
 }
 
 java { toolchain.languageVersion = JavaLanguageVersion.of(25) }
@@ -48,11 +44,6 @@ tasks.withType(JavaCompile).configureEach {
     options.release = 25
     options.encoding = "UTF-8"
     options.compilerArgs.addAll(["-Xlint:all", "-Werror"])
-}
-
-tasks.withType(Test).configureEach {
-    useJUnitPlatform()
-    testLogging { events "failed", "skipped" }
 }
 
 tasks.withType(Jar).configureEach {
