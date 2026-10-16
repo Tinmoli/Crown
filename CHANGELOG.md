@@ -4,7 +4,7 @@ Chinese version: [CHANGELOG_zh.md](CHANGELOG_zh.md)
 
 ## Unreleased
 
-- Convert to a standalone Minecraft 26.1.1 project with sources and tests under src/, without other version modules.
+- Convert to a standalone Minecraft 26.1.1 project with sources under src/, without other version modules.
 
 - Add Minecraft 26.3 support and update the build toolchain to Gradle 9.6 / Loom 1.17.
 

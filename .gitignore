@@ -1,17 +1,21 @@
-.gradle/
-.gradle-cline/
+# Build and local runtime
+.gradle*/
 build/
-**/build/
 dist/
-run/
-run-smoke/
-**/run/
-**/run-smoke/
+run*/
+config/crown/
+*.log
+hs_err_pid*
+
+# Editors
 .idea/
 .vscode/
 *.iml
-*.log
-hs_err_pid*
-config/crown/data/
-IMPLEMENTATION_ROADMAP.md
+
+# Tests and development documents
+test*/
+*Test*.java
+TEST*.md
+DEVELOPMENT*
 DESIGN.md
+IMPLEMENTATION_ROADMAP.md
