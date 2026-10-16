@@ -8,7 +8,7 @@ A Fabric server-side title shop using title coins, with GUIs, custom titles, dai
 
 ## Independent Minecraft projects
 
-Each version folder contains its own complete source, resources, tests, documentation, and Gradle wrapper. No shared project or sibling folder is required. The main branch contains all versions; each version branch contains only its matching project.
+Each version folder contains its own complete source, resources, tests, documentation, and Gradle wrapper. No shared project or sibling folder is required. The main branch contains the latest version (26.3); each version branch contains only its matching project.
 
 | Minecraft | Complete usage and configuration guide | Branch |
 |---|---|---|
