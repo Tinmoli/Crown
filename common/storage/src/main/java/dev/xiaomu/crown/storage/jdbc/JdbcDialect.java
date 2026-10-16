@@ -32,8 +32,7 @@ public enum JdbcDialect {
     MYSQL {
         @Override
         public void configure(Connection connection) throws SQLException {
-            connection.setTransactionIsolation(
-                    Connection.TRANSACTION_READ_COMMITTED);
+            connection.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
         }
 
         @Override
@@ -52,8 +51,7 @@ public enum JdbcDialect {
         }
     };
 
-    public abstract void configure(Connection connection)
-            throws SQLException;
+    public abstract void configure(Connection connection) throws SQLException;
 
     abstract String autoIncrementId();
 

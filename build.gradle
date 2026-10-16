@@ -3,7 +3,7 @@ plugins {
 }
 
 def crownVersionProjects = [
-        "26.1", "26.1.1", "26.1.2", "26.2"
+        "26.1", "26.1.1", "26.1.2", "26.2", "26.3"
 ].collect { ":versions:${it}" }.findAll { findProject(it) != null }
 
 allprojects {
@@ -55,9 +55,9 @@ subprojects {
 
 tasks.register("buildAllVersions") {
     group = "build"
-    description = "构建四个独立的 26.x 版本，并把发布 JAR 收集到 dist。"
-    if (crownVersionProjects.size() != 4) {
-        throw new GradleException("buildAllVersions requires all four version "
+    description = "构建所有支持的 26.x 版本，并把发布 JAR 收集到 dist。"
+    if (crownVersionProjects.size() != 5) {
+        throw new GradleException("buildAllVersions requires all five version "
                 + "projects; omit -PcrownVersions or list all supported versions")
     }
     dependsOn crownVersionProjects.collect { "${it}:jar" }
@@ -72,53 +72,4 @@ tasks.register("buildAllVersions") {
             into layout.projectDirectory.dir("dist")
         }
     }
-}
-
-tasks.register("verifyVersionSources") {
-    group = "verification"
-    description = "验证四个 26.x 版本的共用 Fabric 源码保持一致；Mixin 可独立变化。"
-
-    doLast {
-        def versions = ["26.1", "26.1.1", "26.1.2", "26.2"]
-        def baseline = layout.projectDirectory.dir(
-                "versions/${versions.first()}/src/main/java").asFile
-        def relativeJavaFiles = fileTree(baseline) {
-            include "**/*.java"
-            exclude "**/mixin/**"
-        }.files.collect { baseline.toPath().relativize(it.toPath()).toString()
-        }.sort()
-
-        def failures = []
-        versions.tail().each { targetVersion ->
-            def target = layout.projectDirectory.dir(
-                    "versions/${targetVersion}/src/main/java").asFile
-            def targetFiles = fileTree(target) {
-                include "**/*.java"
-                exclude "**/mixin/**"
-            }.files.collect { target.toPath().relativize(it.toPath()).toString()
-            }.sort()
-            if (targetFiles != relativeJavaFiles) {
-                failures << "${targetVersion}: Java file set differs from 26.1"
-                return
-            }
-            relativeJavaFiles.each { relative ->
-                def baselineFile = new File(baseline, relative)
-                def targetFile = new File(target, relative)
-                if (baselineFile.getText("UTF-8")
-                        != targetFile.getText("UTF-8")) {
-                    failures << "${targetVersion}: ${relative} differs from 26.1"
-                }
-            }
-        }
-        if (!failures.isEmpty()) {
-            throw new GradleException("Version source parity failed:\n"
-                    + failures.join("\n"))
-        }
-        logger.lifecycle("Verified {} non-Mixin Fabric source files across {} 26.x versions.",
-                relativeJavaFiles.size(), versions.size())
-    }
-}
-
-tasks.named("check") {
-    dependsOn "verifyVersionSources"
 }

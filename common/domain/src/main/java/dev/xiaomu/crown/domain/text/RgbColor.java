@@ -15,11 +15,7 @@ public record RgbColor(int red, int green, int blue) {
         if (rgb < 0 || rgb > 0xFFFFFF) {
             throw new IllegalArgumentException("RGB value is out of range");
         }
-        return new RgbColor(
-                (rgb >>> 16) & 0xFF,
-                (rgb >>> 8) & 0xFF,
-                rgb & 0xFF
-        );
+        return new RgbColor((rgb >>> 16) & 0xFF, (rgb >>> 8) & 0xFF, rgb & 0xFF);
     }
 
     public static RgbColor parse(String source) {
@@ -39,25 +35,17 @@ public record RgbColor(int red, int green, int blue) {
         return String.format(Locale.ROOT, "#%06X", packed());
     }
 
-    /**
-     * 按线性 RGB 通道插值。比例 0 返回起始颜色，比例 1 返回结束颜色。
-     */
-    public static RgbColor interpolate(
-            RgbColor start,
-            RgbColor end,
-            double ratio
-    ) {
+    /** 按线性 RGB 通道插值。比例 0 返回起始颜色，比例 1 返回结束颜色。 */
+    public static RgbColor interpolate(RgbColor start, RgbColor end, double ratio) {
         Objects.requireNonNull(start, "start");
         Objects.requireNonNull(end, "end");
         if (!Double.isFinite(ratio) || ratio < 0.0 || ratio > 1.0) {
-            throw new IllegalArgumentException(
-                    "Interpolation ratio must be between zero and one");
+            throw new IllegalArgumentException("Interpolation ratio must be between zero and one");
         }
         return new RgbColor(
                 interpolateChannel(start.red, end.red, ratio),
                 interpolateChannel(start.green, end.green, ratio),
-                interpolateChannel(start.blue, end.blue, ratio)
-        );
+                interpolateChannel(start.blue, end.blue, ratio));
     }
 
     static boolean isHex(String value) {

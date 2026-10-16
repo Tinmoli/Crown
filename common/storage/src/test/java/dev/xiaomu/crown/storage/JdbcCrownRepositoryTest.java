@@ -1,5 +1,11 @@
 package dev.xiaomu.crown.storage;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.xiaomu.crown.domain.catalog.DefinitionId;
 import dev.xiaomu.crown.domain.catalog.PaymentType;
 import dev.xiaomu.crown.domain.order.PurchaseOrderState;
@@ -16,6 +22,7 @@ import dev.xiaomu.crown.storage.model.ProductType;
 import dev.xiaomu.crown.storage.model.PurchaseOrderRecord;
 import dev.xiaomu.crown.storage.model.TitleCoinLedgerRecord;
 import dev.xiaomu.crown.storage.repository.JdbcCrownRepository;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -24,20 +31,11 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 final class JdbcCrownRepositoryTest {
-    private static final TableNames TABLES =
-            TableNames.withPrefix("crown_");
-    private static final Instant CREATED_AT =
-            Instant.parse("2026-07-26T01:00:00Z");
+    private static final TableNames TABLES = TableNames.withPrefix("crown_");
+    private static final Instant CREATED_AT = Instant.parse("2026-07-26T01:00:00Z");
 
-    @TempDir
-    private Path temporaryDirectory;
+    @TempDir private Path temporaryDirectory;
 
     @Test
     void initializesSchemaIdempotentlyAndPersistsPlayerIdentity() {
@@ -49,37 +47,31 @@ final class JdbcCrownRepositoryTest {
             assertEquals(1, repository.initializeSchema());
             assertEquals(1, repository.initializeSchema());
 
-            PlayerRecord created = repository.ensurePlayer(
-                    defaultPlayerId,
-                    "FirstName",
-                    TitleSelection.defaultTitle(),
-                    CREATED_AT);
-            assertEquals(TitleSelection.defaultTitle(),
-                    created.selection());
+            PlayerRecord created =
+                    repository.ensurePlayer(
+                            defaultPlayerId,
+                            "FirstName",
+                            TitleSelection.defaultTitle(),
+                            CREATED_AT);
+            assertEquals(TitleSelection.defaultTitle(), created.selection());
             assertEquals(0, created.titleCoinBalance());
             assertEquals(CREATED_AT, created.createdAt());
             assertEquals(CREATED_AT, created.updatedAt());
 
-            PlayerRecord renamed = repository.ensurePlayer(
-                    defaultPlayerId,
-                    "RenamedPlayer",
-                    TitleSelection.none(),
-                    renamedAt);
+            PlayerRecord renamed =
+                    repository.ensurePlayer(
+                            defaultPlayerId, "RenamedPlayer", TitleSelection.none(), renamedAt);
             assertEquals("RenamedPlayer", renamed.lastKnownName());
-            assertEquals(TitleSelection.defaultTitle(),
-                    renamed.selection());
+            assertEquals(TitleSelection.defaultTitle(), renamed.selection());
             assertEquals(CREATED_AT, renamed.createdAt());
             assertEquals(renamedAt, renamed.updatedAt());
 
-            PlayerRecord stored = repository.findPlayer(defaultPlayerId)
-                    .orElseThrow();
+            PlayerRecord stored = repository.findPlayer(defaultPlayerId).orElseThrow();
             assertEquals(renamed, stored);
 
-            PlayerRecord none = repository.ensurePlayer(
-                    nonePlayerId,
-                    "NoDefault",
-                    TitleSelection.none(),
-                    CREATED_AT);
+            PlayerRecord none =
+                    repository.ensurePlayer(
+                            nonePlayerId, "NoDefault", TitleSelection.none(), CREATED_AT);
             assertEquals(TitleSelection.none(), none.selection());
         }
     }
@@ -91,72 +83,57 @@ final class JdbcCrownRepositoryTest {
         UUID entryId = UUID.randomUUID();
         UUID expiredEntryId = UUID.randomUUID();
 
-        try (JdbcCrownRepository repository =
-                     initializedRepository("warehouse.db")) {
+        try (JdbcCrownRepository repository = initializedRepository("warehouse.db")) {
             repository.ensurePlayer(
-                    playerId, "PlayerOne",
-                    TitleSelection.defaultTitle(), CREATED_AT);
-            repository.ensurePlayer(
-                    otherPlayerId, "PlayerTwo",
-                    TitleSelection.none(), CREATED_AT);
+                    playerId, "PlayerOne", TitleSelection.defaultTitle(), CREATED_AT);
+            repository.ensurePlayer(otherPlayerId, "PlayerTwo", TitleSelection.none(), CREATED_AT);
 
-            OwnedTitleRecord title = title(
-                    entryId, playerId, null, null);
+            OwnedTitleRecord title = title(entryId, playerId, null, null);
             assertTrue(repository.insertOwnedTitle(title));
             assertFalse(repository.insertOwnedTitle(title));
 
-            assertFalse(repository.setSelection(
-                    otherPlayerId,
-                    TitleSelection.owned(entryId),
-                    CREATED_AT.plusSeconds(1)));
-            assertTrue(repository.setSelection(
-                    playerId,
-                    TitleSelection.owned(entryId),
-                    CREATED_AT.plusSeconds(1)));
+            assertFalse(
+                    repository.setSelection(
+                            otherPlayerId,
+                            TitleSelection.owned(entryId),
+                            CREATED_AT.plusSeconds(1)));
+            assertTrue(
+                    repository.setSelection(
+                            playerId, TitleSelection.owned(entryId), CREATED_AT.plusSeconds(1)));
             assertEquals(
                     TitleSelection.owned(entryId),
-                    repository.findPlayer(playerId)
-                            .orElseThrow().selection());
+                    repository.findPlayer(playerId).orElseThrow().selection());
 
-            OwnedTitleRecord expired = title(
-                    expiredEntryId,
-                    playerId,
-                    null,
-                    CREATED_AT.plusSeconds(30));
+            OwnedTitleRecord expired =
+                    title(expiredEntryId, playerId, null, CREATED_AT.plusSeconds(30));
             assertTrue(repository.insertOwnedTitle(expired));
-            assertFalse(repository.setSelection(
-                    playerId,
-                    TitleSelection.owned(expiredEntryId),
-                    CREATED_AT.plusSeconds(30)));
+            assertFalse(
+                    repository.setSelection(
+                            playerId,
+                            TitleSelection.owned(expiredEntryId),
+                            CREATED_AT.plusSeconds(30)));
 
             Instant deletedAt = CREATED_AT.plusSeconds(90);
-            assertTrue(repository.softDeleteOwnedTitle(
-                    playerId, entryId, "console", deletedAt));
-            assertFalse(repository.softDeleteOwnedTitle(
-                    playerId, entryId, "console", deletedAt));
+            assertTrue(repository.softDeleteOwnedTitle(playerId, entryId, "console", deletedAt));
+            assertFalse(repository.softDeleteOwnedTitle(playerId, entryId, "console", deletedAt));
 
             assertEquals(
                     TitleSelection.none(),
-                    repository.findPlayer(playerId)
-                            .orElseThrow().selection());
-            assertTrue(repository.listOwnedTitles(
-                    playerId, false).stream()
-                    .noneMatch(record ->
-                            record.entryId().equals(entryId)));
+                    repository.findPlayer(playerId).orElseThrow().selection());
+            assertTrue(
+                    repository.listOwnedTitles(playerId, false).stream()
+                            .noneMatch(record -> record.entryId().equals(entryId)));
 
-            OwnedTitleRecord deleted = repository.findOwnedTitle(entryId)
-                    .orElseThrow();
+            OwnedTitleRecord deleted = repository.findOwnedTitle(entryId).orElseThrow();
             assertEquals(OwnedTitleStatus.DELETED, deleted.status());
             assertEquals(deletedAt, deleted.deletedAt());
             assertEquals("console", deleted.deletedBy());
-            assertTrue(repository.listOwnedTitles(
-                    playerId, true).stream()
-                    .anyMatch(record ->
-                            record.entryId().equals(entryId)));
-            assertFalse(repository.setSelection(
-                    playerId,
-                    TitleSelection.owned(entryId),
-                    deletedAt.plusSeconds(1)));
+            assertTrue(
+                    repository.listOwnedTitles(playerId, true).stream()
+                            .anyMatch(record -> record.entryId().equals(entryId)));
+            assertFalse(
+                    repository.setSelection(
+                            playerId, TitleSelection.owned(entryId), deletedAt.plusSeconds(1)));
         }
     }
 
@@ -164,65 +141,85 @@ final class JdbcCrownRepositoryTest {
     void adjustsCoinsWithImmutableLedgerAndRollsBackFailures() {
         UUID playerId = UUID.randomUUID();
 
-        try (JdbcCrownRepository repository =
-                     initializedRepository("coins.db")) {
+        try (JdbcCrownRepository repository = initializedRepository("coins.db")) {
             repository.ensurePlayer(
-                    playerId, "CoinPlayer",
-                    TitleSelection.defaultTitle(), CREATED_AT);
+                    playerId, "CoinPlayer", TitleSelection.defaultTitle(), CREATED_AT);
 
             CoinAdjustmentResult credited =
                     repository.adjustTitleCoins(
-                            playerId, 100, 1_000,
-                            "console", "admin_give",
-                            null, CREATED_AT.plusSeconds(1));
+                            playerId,
+                            100,
+                            1_000,
+                            "console",
+                            "admin_give",
+                            null,
+                            CREATED_AT.plusSeconds(1));
             assertEquals(0, credited.balanceBefore());
             assertEquals(100, credited.balanceAfter());
             assertTrue(credited.ledger().ledgerId() > 0);
 
             CoinAdjustmentResult debited =
                     repository.adjustTitleCoins(
-                            playerId, -40, 1_000,
-                            "crown:shop", "title_purchase",
-                            null, CREATED_AT.plusSeconds(2));
+                            playerId,
+                            -40,
+                            1_000,
+                            "crown:shop",
+                            "title_purchase",
+                            null,
+                            CREATED_AT.plusSeconds(2));
             assertEquals(100, debited.balanceBefore());
             assertEquals(60, debited.balanceAfter());
 
-            List<TitleCoinLedgerRecord> beforeFailures =
-                    repository.titleCoinLedger(playerId, 10);
+            List<TitleCoinLedgerRecord> beforeFailures = repository.titleCoinLedger(playerId, 10);
             assertEquals(2, beforeFailures.size());
             assertEquals(-40, beforeFailures.get(0).delta());
             assertEquals(100, beforeFailures.get(1).delta());
 
-            assertThrows(StorageException.class,
-                    () -> repository.adjustTitleCoins(
-                            playerId, -61, 1_000,
-                            "crown:shop", "insufficient",
-                            null, CREATED_AT.plusSeconds(3)));
-            assertThrows(StorageException.class,
-                    () -> repository.adjustTitleCoins(
-                            playerId, 941, 1_000,
-                            "console", "over_maximum",
-                            null, CREATED_AT.plusSeconds(4)));
-            assertThrows(StorageException.class,
-                    () -> repository.adjustTitleCoins(
-                            playerId, Long.MAX_VALUE,
-                            Long.MAX_VALUE,
-                            "console", "overflow",
-                            null, CREATED_AT.plusSeconds(5)));
+            assertThrows(
+                    StorageException.class,
+                    () ->
+                            repository.adjustTitleCoins(
+                                    playerId,
+                                    -61,
+                                    1_000,
+                                    "crown:shop",
+                                    "insufficient",
+                                    null,
+                                    CREATED_AT.plusSeconds(3)));
+            assertThrows(
+                    StorageException.class,
+                    () ->
+                            repository.adjustTitleCoins(
+                                    playerId,
+                                    941,
+                                    1_000,
+                                    "console",
+                                    "over_maximum",
+                                    null,
+                                    CREATED_AT.plusSeconds(4)));
+            assertThrows(
+                    StorageException.class,
+                    () ->
+                            repository.adjustTitleCoins(
+                                    playerId,
+                                    Long.MAX_VALUE,
+                                    Long.MAX_VALUE,
+                                    "console",
+                                    "overflow",
+                                    null,
+                                    CREATED_AT.plusSeconds(5)));
 
-            PlayerRecord unchanged =
-                    repository.findPlayer(playerId).orElseThrow();
+            PlayerRecord unchanged = repository.findPlayer(playerId).orElseThrow();
             assertEquals(60, unchanged.titleCoinBalance());
-            assertEquals(beforeFailures,
-                    repository.titleCoinLedger(playerId, 10));
+            assertEquals(beforeFailures, repository.titleCoinLedger(playerId, 10));
 
-            assertThrows(IllegalArgumentException.class,
-                    () -> repository.titleCoinLedger(playerId, 0));
-            assertThrows(IllegalArgumentException.class,
-                    () -> repository.adjustTitleCoins(
-                            playerId, 0, 1_000,
-                            "console", "zero",
-                            null, CREATED_AT));
+            assertThrows(
+                    IllegalArgumentException.class, () -> repository.titleCoinLedger(playerId, 0));
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () ->
+                            repository.adjustTitleCoins(
+                                    playerId, 0, 1_000, "console", "zero", null, CREATED_AT));
         }
     }
 
@@ -233,66 +230,65 @@ final class JdbcCrownRepositoryTest {
         UUID transactionId = UUID.randomUUID();
         UUID entryId = UUID.randomUUID();
 
-        try (JdbcCrownRepository repository =
-                     initializedRepository("orders.db")) {
-            repository.ensurePlayer(
-                    playerId, "Buyer",
-                    TitleSelection.defaultTitle(), CREATED_AT);
+        try (JdbcCrownRepository repository = initializedRepository("orders.db")) {
+            repository.ensurePlayer(playerId, "Buyer", TitleSelection.defaultTitle(), CREATED_AT);
 
-            PurchaseOrderRecord prepared = coinOrder(
-                    orderId, transactionId, playerId,
-                    PurchaseOrderState.PREPARED, CREATED_AT);
+            PurchaseOrderRecord prepared =
+                    coinOrder(
+                            orderId,
+                            transactionId,
+                            playerId,
+                            PurchaseOrderState.PREPARED,
+                            CREATED_AT);
             assertTrue(repository.createOrder(prepared));
             assertFalse(repository.createOrder(prepared));
-            assertEquals(prepared,
-                    repository.findOrder(orderId).orElseThrow());
-            assertEquals(List.of(prepared),
-                    repository.findRecoverableOrders(10));
+            assertEquals(prepared, repository.findOrder(orderId).orElseThrow());
+            assertEquals(List.of(prepared), repository.findRecoverableOrders(10));
 
             Instant pendingAt = CREATED_AT.plusSeconds(1);
-            assertTrue(repository.transitionOrder(
-                    orderId,
-                    PurchaseOrderState.PREPARED,
-                    PurchaseOrderState.PAYMENT_PENDING,
-                    null,
-                    pendingAt));
-            assertFalse(repository.transitionOrder(
-                    orderId,
-                    PurchaseOrderState.PREPARED,
-                    PurchaseOrderState.FAILED,
-                    "stale_worker",
-                    pendingAt.plusMillis(1)));
+            assertTrue(
+                    repository.transitionOrder(
+                            orderId,
+                            PurchaseOrderState.PREPARED,
+                            PurchaseOrderState.PAYMENT_PENDING,
+                            null,
+                            pendingAt));
+            assertFalse(
+                    repository.transitionOrder(
+                            orderId,
+                            PurchaseOrderState.PREPARED,
+                            PurchaseOrderState.FAILED,
+                            "stale_worker",
+                            pendingAt.plusMillis(1)));
 
             Instant committedAt = CREATED_AT.plusSeconds(2);
-            assertTrue(repository.transitionOrder(
-                    orderId,
-                    PurchaseOrderState.PAYMENT_PENDING,
-                    PurchaseOrderState.PAYMENT_COMMITTED,
-                    null,
-                    committedAt));
+            assertTrue(
+                    repository.transitionOrder(
+                            orderId,
+                            PurchaseOrderState.PAYMENT_PENDING,
+                            PurchaseOrderState.PAYMENT_COMMITTED,
+                            null,
+                            committedAt));
 
-            OwnedTitleRecord requestedGrant = title(
-                    entryId, playerId, orderId, null);
+            OwnedTitleRecord requestedGrant = title(entryId, playerId, orderId, null);
             Instant grantedAt = CREATED_AT.plusSeconds(3);
-            OwnedTitleRecord granted = repository.grantCommittedOrder(
-                    orderId, requestedGrant, grantedAt);
+            OwnedTitleRecord granted =
+                    repository.grantCommittedOrder(orderId, requestedGrant, grantedAt);
             assertEquals(requestedGrant, granted);
 
-            PurchaseOrderRecord finalized =
-                    repository.findOrder(orderId).orElseThrow();
+            PurchaseOrderRecord finalized = repository.findOrder(orderId).orElseThrow();
             assertEquals(PurchaseOrderState.GRANTED, finalized.state());
-            assertEquals(entryId,
-                    finalized.grantedEntryId().orElseThrow());
+            assertEquals(entryId, finalized.grantedEntryId().orElseThrow());
             assertFalse(finalized.inventoryReserved());
             assertEquals(grantedAt, finalized.updatedAt());
 
-            OwnedTitleRecord recovered = repository.grantCommittedOrder(
-                    orderId,
-                    title(UUID.randomUUID(), playerId, orderId, null),
-                    grantedAt.plusSeconds(10));
+            OwnedTitleRecord recovered =
+                    repository.grantCommittedOrder(
+                            orderId,
+                            title(UUID.randomUUID(), playerId, orderId, null),
+                            grantedAt.plusSeconds(10));
             assertEquals(granted, recovered);
-            assertEquals(1,
-                    repository.listOwnedTitles(playerId, true).size());
+            assertEquals(1, repository.listOwnedTitles(playerId, true).size());
             assertTrue(repository.findRecoverableOrders(10).isEmpty());
         }
     }
@@ -304,35 +300,37 @@ final class JdbcCrownRepositoryTest {
         UUID firstOrderId = UUID.randomUUID();
         UUID secondOrderId = UUID.randomUUID();
 
-        try (JdbcCrownRepository repository =
-                     initializedRepository("constraints.db")) {
-            repository.ensurePlayer(
-                    playerId, "Buyer",
-                    TitleSelection.defaultTitle(), CREATED_AT);
+        try (JdbcCrownRepository repository = initializedRepository("constraints.db")) {
+            repository.ensurePlayer(playerId, "Buyer", TitleSelection.defaultTitle(), CREATED_AT);
 
-            assertTrue(repository.createOrder(coinOrder(
-                    firstOrderId, transactionId, playerId,
-                    PurchaseOrderState.PREPARED, CREATED_AT)));
+            assertTrue(
+                    repository.createOrder(
+                            coinOrder(
+                                    firstOrderId,
+                                    transactionId,
+                                    playerId,
+                                    PurchaseOrderState.PREPARED,
+                                    CREATED_AT)));
 
-            assertNotNull(repository.findOrder(firstOrderId)
-                    .orElseThrow());
+            assertNotNull(repository.findOrder(firstOrderId).orElseThrow());
 
             UUID uncommittedEntryId = UUID.randomUUID();
-            assertThrows(StorageException.class,
-                    () -> repository.grantCommittedOrder(
-                            firstOrderId,
-                            title(uncommittedEntryId, playerId,
-                                    firstOrderId, null),
-                            CREATED_AT.plusSeconds(2)));
-            assertTrue(repository.findOwnedTitle(
-                    uncommittedEntryId).isEmpty());
+            assertThrows(
+                    StorageException.class,
+                    () ->
+                            repository.grantCommittedOrder(
+                                    firstOrderId,
+                                    title(uncommittedEntryId, playerId, firstOrderId, null),
+                                    CREATED_AT.plusSeconds(2)));
+            assertTrue(repository.findOwnedTitle(uncommittedEntryId).isEmpty());
 
-            assertThrows(IllegalArgumentException.class,
-                    () -> repository.grantCommittedOrder(
-                            firstOrderId,
-                            title(UUID.randomUUID(), playerId,
-                                    UUID.randomUUID(), null),
-                            CREATED_AT.plusSeconds(2)));
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () ->
+                            repository.grantCommittedOrder(
+                                    firstOrderId,
+                                    title(UUID.randomUUID(), playerId, UUID.randomUUID(), null),
+                                    CREATED_AT.plusSeconds(2)));
         }
     }
 
@@ -345,20 +343,13 @@ final class JdbcCrownRepositoryTest {
     private JdbcCrownRepository repository(String fileName) {
         return new JdbcCrownRepository(
                 new SqliteConnectionFactory(
-                        temporaryDirectory.resolve(fileName),
-                        5_000,
-                        true,
-                        "NORMAL"),
+                        temporaryDirectory.resolve(fileName), 5_000, true, "NORMAL"),
                 JdbcDialect.SQLITE,
                 TABLES);
     }
 
     private static OwnedTitleRecord title(
-            UUID entryId,
-            UUID playerId,
-            UUID orderId,
-            Instant expiresAt
-    ) {
+            UUID entryId, UUID playerId, UUID orderId, Instant expiresAt) {
         return new OwnedTitleRecord(
                 entryId,
                 playerId,
@@ -381,8 +372,7 @@ final class JdbcCrownRepositoryTest {
             UUID transactionId,
             UUID playerId,
             PurchaseOrderState state,
-            Instant now
-    ) {
+            Instant now) {
         return new PurchaseOrderRecord(
                 orderId,
                 playerId,

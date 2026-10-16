@@ -9,6 +9,7 @@ public record PurchaseIdentifiers(UUID orderId, UUID entryId) {
         Objects.requireNonNull(orderId, "orderId");
         Objects.requireNonNull(entryId, "entryId");
     }
+
     public static PurchaseIdentifiers create() {
         return new PurchaseIdentifiers(UUID.randomUUID(), UUID.randomUUID());
     }

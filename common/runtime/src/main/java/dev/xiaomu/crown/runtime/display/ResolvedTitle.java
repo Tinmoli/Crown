@@ -15,8 +15,7 @@ public record ResolvedTitle(
         StyledText prefix,
         StyledText text,
         StyledText suffix,
-        Instant expiresAt
-) {
+        Instant expiresAt) {
     public ResolvedTitle {
         state = Objects.requireNonNull(state, "state");
         prefix = Objects.requireNonNull(prefix, "prefix");
@@ -26,8 +25,12 @@ public record ResolvedTitle(
 
     public static ResolvedTitle none() {
         return new ResolvedTitle(
-                SelectionType.NONE, null, "",
-                StyledText.empty(), StyledText.empty(), StyledText.empty(),
+                SelectionType.NONE,
+                null,
+                "",
+                StyledText.empty(),
+                StyledText.empty(),
+                StyledText.empty(),
                 null);
     }
 

@@ -27,16 +27,13 @@ public final class StorageBackend implements AutoCloseable {
             ConnectionFactory connections,
             JdbcDialect dialect,
             TableNames tables,
-            Path sqliteDatabase
-    ) {
+            Path sqliteDatabase) {
         this.type = Objects.requireNonNull(type, "type");
-        this.connections = Objects.requireNonNull(
-                connections, "connections");
+        this.connections = Objects.requireNonNull(connections, "connections");
         this.dialect = Objects.requireNonNull(dialect, "dialect");
         this.tables = Objects.requireNonNull(tables, "tables");
         this.sqliteDatabase = sqliteDatabase;
-        repository = new JdbcCrownRepository(
-                connections, dialect, tables, false);
+        repository = new JdbcCrownRepository(connections, dialect, tables, false);
     }
 
     public StorageSettings.Type type() {
@@ -71,8 +68,7 @@ public final class StorageBackend implements AutoCloseable {
 
     private void requireOpen() {
         if (closed.get()) {
-            throw new StorageException(
-                    "Crown storage backend is closed");
+            throw new StorageException("Crown storage backend is closed");
         }
     }
 

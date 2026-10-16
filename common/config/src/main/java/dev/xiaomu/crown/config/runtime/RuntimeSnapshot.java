@@ -16,8 +16,7 @@ public record RuntimeSnapshot(
         StorageSettings storage,
         GuiLayouts gui,
         LanguageCatalog languages,
-        Instant builtAt
-) {
+        Instant builtAt) {
     public RuntimeSnapshot {
         core = Objects.requireNonNull(core, "core");
         catalog = Objects.requireNonNull(catalog, "catalog");

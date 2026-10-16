@@ -14,12 +14,10 @@ public record ConfigurationSyncResult(
         boolean created,
         boolean recovered,
         boolean changed,
-        Path backup
-) {
+        Path backup) {
     public ConfigurationSyncResult {
         file = Objects.requireNonNull(file, "file");
-        values = ConfigMaps.immutableDeepMap(
-                Objects.requireNonNull(values, "values"));
+        values = ConfigMaps.immutableDeepMap(Objects.requireNonNull(values, "values"));
     }
 
     public Optional<Path> backupFile() {

@@ -30,7 +30,7 @@ include "common:storage"
 include "common:runtime"
 
 def supportedCrownVersions = [
-        "26.1", "26.1.1", "26.1.2", "26.2"
+        "26.1", "26.1.1", "26.1.2", "26.2", "26.3"
 ]
 def requestedCrownVersions = providers.gradleProperty("crownVersions")
         .getOrElse(String.join(",", supportedCrownVersions))

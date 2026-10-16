@@ -3,9 +3,7 @@ package dev.xiaomu.crown.domain.text;
 /**
  * 文本解析失败的稳定错误码。
  *
- * <p>domain 层不接触语言文件；版本适配层按
- * {@code custom.invalid.} + 常量名（小写、下划线转连字符）查找语言键，
- * 英文消息仅保留给日志和测试。</p>
+ * <p>domain 层不接触语言文件；版本适配层按 {@code custom.invalid.} + 常量名（小写、下划线转连字符）查找语言键， 英文消息仅保留给日志和测试。
  */
 public enum TextParseError {
     SOURCE_TOO_LONG,

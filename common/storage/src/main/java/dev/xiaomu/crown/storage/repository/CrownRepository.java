@@ -1,11 +1,13 @@
 package dev.xiaomu.crown.storage.repository;
 
+import dev.xiaomu.crown.config.model.CoreSettings;
 import dev.xiaomu.crown.domain.catalog.DefinitionId;
 import dev.xiaomu.crown.domain.order.PurchaseOrderState;
 import dev.xiaomu.crown.domain.player.TitleSelection;
 import dev.xiaomu.crown.storage.model.AuditRecord;
 import dev.xiaomu.crown.storage.model.CardRecord;
 import dev.xiaomu.crown.storage.model.CardRedemptionResult;
+import dev.xiaomu.crown.storage.model.CheckInResult;
 import dev.xiaomu.crown.storage.model.CoinAdjustmentResult;
 import dev.xiaomu.crown.storage.model.InternalPaymentResult;
 import dev.xiaomu.crown.storage.model.OrderPreparationStatus;
@@ -14,54 +16,45 @@ import dev.xiaomu.crown.storage.model.PlayerRecord;
 import dev.xiaomu.crown.storage.model.PurchaseOrderRecord;
 import dev.xiaomu.crown.storage.model.SaleCounterRecord;
 import dev.xiaomu.crown.storage.model.TitleCoinLedgerRecord;
+import dev.xiaomu.crown.storage.model.TitleDeletionResult;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 /** SQLite/MySQL 共用的同步 Repository 契约。 */
 public interface CrownRepository extends AutoCloseable {
-    long deletionRefund(UUID playerId, UUID entryId,
-            dev.xiaomu.crown.config.model.CoreSettings.Deletion settings, Instant now);
+    long deletionRefund(UUID playerId, UUID entryId, CoreSettings.Deletion settings, Instant now);
 
-    dev.xiaomu.crown.storage.model.TitleDeletionResult deleteOwnedTitle(
-            UUID playerId, UUID entryId, String actor,
-            dev.xiaomu.crown.config.model.CoreSettings.Deletion settings,
-            long maximumBalance, Instant now);
+    TitleDeletionResult deleteOwnedTitle(
+            UUID playerId,
+            UUID entryId,
+            String actor,
+            CoreSettings.Deletion settings,
+            long maximumBalance,
+            Instant now);
+
+    CheckInResult claimDailyReward(
+            UUID playerId, LocalDate claimDate, long reward, long maximumBalance, Instant now);
 
     int initializeSchema();
 
     PlayerRecord ensurePlayer(
-            UUID playerId,
-            String currentName,
-            TitleSelection initialSelection,
-            Instant now
-    );
+            UUID playerId, String currentName, TitleSelection initialSelection, Instant now);
 
     Optional<PlayerRecord> findPlayer(UUID playerId);
 
-    boolean setSelection(
-            UUID playerId,
-            TitleSelection selection,
-            Instant now
-    );
+    boolean setSelection(UUID playerId, TitleSelection selection, Instant now);
 
-    List<OwnedTitleRecord> listOwnedTitles(
-            UUID playerId,
-            boolean includeDeleted
-    );
+    List<OwnedTitleRecord> listOwnedTitles(UUID playerId, boolean includeDeleted);
 
     Optional<OwnedTitleRecord> findOwnedTitle(UUID entryId);
 
     boolean insertOwnedTitle(OwnedTitleRecord title);
 
-    boolean softDeleteOwnedTitle(
-            UUID playerId,
-            UUID entryId,
-            String actor,
-            Instant now
-    );
+    boolean softDeleteOwnedTitle(UUID playerId, UUID entryId, String actor, Instant now);
 
     CoinAdjustmentResult adjustTitleCoins(
             UUID playerId,
@@ -70,109 +63,65 @@ public interface CrownRepository extends AutoCloseable {
             String actor,
             String reason,
             UUID orderId,
-            Instant now
-    );
+            Instant now);
 
-    List<TitleCoinLedgerRecord> titleCoinLedger(
-            UUID playerId,
-            int limit
-    );
+    List<TitleCoinLedgerRecord> titleCoinLedger(UUID playerId, int limit);
 
-    /**
-     * 在单事务中检查单玩家限购、预留有限库存并创建 PREPARED 订单。
-     * -1 表示对应限制关闭。
-     */
+    /** 在单事务中检查单玩家限购、预留有限库存并创建 PREPARED 订单。 -1 表示对应限制关闭。 */
     OrderPreparationStatus prepareOrder(
             PurchaseOrderRecord order,
             long globalStock,
             int perPlayerLimit,
-            int maximumOwnedTitles
-    );
+            int maximumOwnedTitles);
 
-    /**
-     * 低层幂等订单插入，不执行库存与限购判断。仅供恢复、迁移和无商品
-     * 库存语义的内部流程使用；商城购买应使用 {@link #prepareOrder}。
-     */
+    /** 低层幂等订单插入，不执行库存与限购判断。仅供恢复、迁移和无商品 库存语义的内部流程使用；商城购买应使用 {@link #prepareOrder}。 */
     boolean createOrder(PurchaseOrderRecord order);
 
     Optional<PurchaseOrderRecord> findOrder(UUID orderId);
 
     /**
-     * 将 PAYMENT_PENDING 的 FREE/称号币订单原子提交为
-     * PAYMENT_COMMITTED。称号币余额、不可变流水和订单状态在同一事务；
-     * 余额不足时同事务标记 FAILED 并释放库存预留。
+     * 将 PAYMENT_PENDING 的 FREE/称号币订单原子提交为 PAYMENT_COMMITTED。称号币余额、不可变流水和订单状态在同一事务； 余额不足时同事务标记
+     * FAILED 并释放库存预留。
      */
     InternalPaymentResult commitInternalPayment(
-            UUID orderId,
-            String actor,
-            String reason,
-            Instant now
-    );
+            UUID orderId, String actor, String reason, Instant now);
 
     List<PurchaseOrderRecord> findRecoverableOrders(int limit);
 
-    /**
-     * 统计玩家尚未终结的订单，用于限制重复确认造成的待处理订单堆积。
-     */
+    /** 统计玩家尚未终结的订单，用于限制重复确认造成的待处理订单堆积。 */
     long countPendingOrders(UUID playerId);
 
-    long countPlayerPurchases(
-            UUID playerId,
-            DefinitionId definitionId
-    );
+    long countPlayerPurchases(UUID playerId, DefinitionId definitionId);
 
-    Optional<SaleCounterRecord> findSaleCounter(
-            DefinitionId definitionId
-    );
+    Optional<SaleCounterRecord> findSaleCounter(DefinitionId definitionId);
 
-    /**
-     * CAS 迁移订单状态。转入 FAILED/CANCELLED 时在同一事务释放库存
-     * 预留，过期或重复工作线程不会重复释放。
-     */
+    /** CAS 迁移订单状态。转入 FAILED/CANCELLED 时在同一事务释放库存 预留，过期或重复工作线程不会重复释放。 */
     boolean transitionOrder(
             UUID orderId,
             PurchaseOrderState expected,
             PurchaseOrderState target,
             String failureCode,
-            Instant now
-    );
+            Instant now);
 
     /**
-     * 在单个数据库事务中创建仓库条目、把预留库存转为实际售出，并把
-     * PAYMENT_COMMITTED 订单标记为 GRANTED。重复恢复同一订单时返回
-     * 已存在的最终记录，不重复发放。
+     * 在单个数据库事务中创建仓库条目、把预留库存转为实际售出，并把 PAYMENT_COMMITTED 订单标记为 GRANTED。重复恢复同一订单时返回 已存在的最终记录，不重复发放。
      */
-    OwnedTitleRecord grantCommittedOrder(
-            UUID orderId,
-            OwnedTitleRecord title,
-            Instant now
-    );
+    OwnedTitleRecord grantCommittedOrder(UUID orderId, OwnedTitleRecord title, Instant now);
 
     /**
-     * 与 {@link #grantCommittedOrder(UUID, OwnedTitleRecord, Instant)}
-     * 相同，但首次完成发放时还会在同一事务写入审计。幂等恢复已经
+     * 与 {@link #grantCommittedOrder(UUID, OwnedTitleRecord, Instant)} 相同，但首次完成发放时还会在同一事务写入审计。幂等恢复已经
      * GRANTED 的订单时不会重复写审计。
      */
     OwnedTitleRecord grantCommittedOrderWithAudit(
-            UUID orderId,
-            OwnedTitleRecord title,
-            AuditRecord audit,
-            Instant now
-    );
+            UUID orderId, OwnedTitleRecord title, AuditRecord audit, Instant now);
 
     boolean createCard(CardRecord card);
 
     Optional<CardRecord> findCard(String cardToken);
 
-    /**
-     * 条件标记卡片已兑换并创建仓库条目；两个操作在同一事务中完成。
-     */
+    /** 条件标记卡片已兑换并创建仓库条目；两个操作在同一事务中完成。 */
     CardRedemptionResult redeemCard(
-            String cardToken,
-            UUID playerId,
-            OwnedTitleRecord title,
-            Instant now
-    );
+            String cardToken, UUID playerId, OwnedTitleRecord title, Instant now);
 
     /**
      * 与 {@link #redeemCard(String, UUID, OwnedTitleRecord, Instant)}
@@ -184,15 +133,11 @@ public interface CrownRepository extends AutoCloseable {
             OwnedTitleRecord title,
             AuditRecord audit,
             int maximumOwnedTitles,
-            Instant now
-    );
+            Instant now);
 
     AuditRecord appendAudit(AuditRecord audit);
 
-    List<AuditRecord> findAuditByTarget(
-            String targetId,
-            int limit
-    );
+    List<AuditRecord> findAuditByTarget(String targetId, int limit);
 
     @Override
     void close();

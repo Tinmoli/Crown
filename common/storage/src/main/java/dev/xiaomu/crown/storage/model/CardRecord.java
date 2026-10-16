@@ -17,33 +17,27 @@ public record CardRecord(
         String issuedBy,
         Instant issuedAt,
         UUID redeemedBy,
-        Instant redeemedAt
-) {
-    private static final Pattern TOKEN =
-            Pattern.compile("[A-Za-z0-9_-]{24,128}");
+        Instant redeemedAt) {
+    private static final Pattern TOKEN = Pattern.compile("[A-Za-z0-9_-]{24,128}");
 
     public CardRecord {
         cardToken = requireToken(cardToken);
-        definitionId = Objects.requireNonNull(
-                definitionId, "definitionId");
+        definitionId = Objects.requireNonNull(definitionId, "definitionId");
         duration = Objects.requireNonNull(duration, "duration");
         issuedBy = requireText(issuedBy, "issuedBy", 192);
         issuedAt = Objects.requireNonNull(issuedAt, "issuedAt");
         if ((redeemedBy == null) != (redeemedAt == null)) {
-            throw new IllegalArgumentException(
-                    "Card redemption metadata must be complete");
+            throw new IllegalArgumentException("Card redemption metadata must be complete");
         }
         if (redeemedAt != null && redeemedAt.isBefore(issuedAt)) {
-            throw new IllegalArgumentException(
-                    "Card redemption precedes issuance");
+            throw new IllegalArgumentException("Card redemption precedes issuance");
         }
     }
 
     public static String requireToken(String value) {
         Objects.requireNonNull(value, "cardToken");
         if (!TOKEN.matcher(value).matches()) {
-            throw new IllegalArgumentException(
-                    "Invalid Crown card token");
+            throw new IllegalArgumentException("Invalid Crown card token");
         }
         return value;
     }
@@ -56,31 +50,20 @@ public record CardRecord(
         return Optional.ofNullable(redeemedBy);
     }
 
-
     public CardRecord redeemedBy(UUID playerId, Instant instant) {
         Objects.requireNonNull(playerId, "playerId");
         Objects.requireNonNull(instant, "instant");
         if (redeemed()) {
-            throw new IllegalStateException(
-                    "Crown card has already been redeemed");
+            throw new IllegalStateException("Crown card has already been redeemed");
         }
         return new CardRecord(
-                cardToken,
-                definitionId,
-                duration,
-                issuedBy,
-                issuedAt,
-                playerId,
-                instant);
+                cardToken, definitionId, duration, issuedBy, issuedAt, playerId, instant);
     }
 
-    private static String requireText(
-            String value,
-            String name,
-            int maximumLength
-    ) {
+    private static String requireText(String value, String name, int maximumLength) {
         Objects.requireNonNull(value, name);
-        if (value.isBlank() || value.length() > maximumLength
+        if (value.isBlank()
+                || value.length() > maximumLength
                 || value.codePoints().anyMatch(Character::isISOControl)) {
             throw new IllegalArgumentException(name + " is invalid");
         }

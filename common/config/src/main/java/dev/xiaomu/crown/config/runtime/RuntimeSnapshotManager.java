@@ -9,45 +9,36 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * 当前配置快照的原子持有者。
  *
- * <p>reload 会先独立构建完整候选快照；失败时引用保持不变，从而避免
- * config/titles/lang/gui 的半重载状态。</p>
+ * <p>reload 会先独立构建完整候选快照；失败时引用保持不变，从而避免 config/titles/lang/gui 的半重载状态。
  */
 public final class RuntimeSnapshotManager {
     private final Path configRoot;
     private final CrownConfigurationBootstrap bootstrap;
-    private final AtomicReference<RuntimeSnapshot> current =
-            new AtomicReference<>();
+    private final AtomicReference<RuntimeSnapshot> current = new AtomicReference<>();
 
-    public RuntimeSnapshotManager(
-            Path configRoot,
-            CrownConfigurationBootstrap bootstrap
-    ) {
-        this.configRoot = Objects.requireNonNull(
-                configRoot, "configRoot");
-        this.bootstrap = Objects.requireNonNull(
-                bootstrap, "bootstrap");
+    public RuntimeSnapshotManager(Path configRoot, CrownConfigurationBootstrap bootstrap) {
+        this.configRoot = Objects.requireNonNull(configRoot, "configRoot");
+        this.bootstrap = Objects.requireNonNull(bootstrap, "bootstrap");
     }
 
     public ConfigurationLoadReport start() throws IOException {
         ConfigurationLoadReport report = bootstrap.initialize(configRoot);
         if (!current.compareAndSet(null, report.snapshot())) {
-            throw new IllegalStateException(
-                    "Crown configuration was already started");
+            throw new IllegalStateException("Crown configuration was already started");
         }
         return report;
     }
 
     public ConfigurationLoadReport reload() throws IOException {
-        return reload(candidate -> { });
+        return reload(candidate -> {});
     }
 
-    public ConfigurationLoadReport reload(java.util.function.Consumer<RuntimeSnapshot> validator) throws IOException {
+    public ConfigurationLoadReport reload(java.util.function.Consumer<RuntimeSnapshot> validator)
+            throws IOException {
         if (current.get() == null) {
-            throw new IllegalStateException(
-                    "Crown configuration is not started");
+            throw new IllegalStateException("Crown configuration is not started");
         }
-        ConfigurationLoadReport candidate =
-                bootstrap.initialize(configRoot);
+        ConfigurationLoadReport candidate = bootstrap.initialize(configRoot);
         validator.accept(candidate.snapshot());
         current.set(candidate.snapshot());
         return candidate;
@@ -61,8 +52,7 @@ public final class RuntimeSnapshotManager {
     public RuntimeSnapshot requireSnapshot() {
         RuntimeSnapshot snapshot = current.get();
         if (snapshot == null) {
-            throw new IllegalStateException(
-                    "Crown configuration is not available");
+            throw new IllegalStateException("Crown configuration is not available");
         }
         return snapshot;
     }

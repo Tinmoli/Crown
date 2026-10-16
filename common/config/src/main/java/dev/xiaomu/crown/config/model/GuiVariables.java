@@ -8,7 +8,7 @@ import java.util.regex.Pattern;
 public final class GuiVariables {
     private static final Pattern TOKEN = Pattern.compile("\\{([a-z0-9_]+)}");
 
-    private GuiVariables() { }
+    private GuiVariables() {}
 
     public static String substitute(String template, Map<String, String> variables) {
         Objects.requireNonNull(template, "template");
@@ -17,7 +17,8 @@ public final class GuiVariables {
         var result = new StringBuilder();
         while (matcher.find()) {
             String value = variables.getOrDefault(matcher.group(1), matcher.group());
-            matcher.appendReplacement(result, java.util.regex.Matcher.quoteReplacement(value == null ? "" : value));
+            matcher.appendReplacement(
+                    result, java.util.regex.Matcher.quoteReplacement(value == null ? "" : value));
         }
         return matcher.appendTail(result).toString();
     }

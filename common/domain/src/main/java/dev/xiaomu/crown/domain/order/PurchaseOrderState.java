@@ -26,20 +26,16 @@ public enum PurchaseOrderState {
     public void requireTransitionTo(PurchaseOrderState target) {
         if (!canTransitionTo(target)) {
             throw new IllegalStateException(
-                    "Illegal purchase order transition: "
-                            + this + " -> " + target);
+                    "Illegal purchase order transition: " + this + " -> " + target);
         }
     }
 
     private Set<PurchaseOrderState> allowedTargets() {
         return switch (this) {
-            case PREPARED -> EnumSet.of(
-                    PAYMENT_PENDING, CANCELLED, FAILED);
-            case PAYMENT_PENDING -> EnumSet.of(
-                    PAYMENT_COMMITTED, FAILED);
+            case PREPARED -> EnumSet.of(PAYMENT_PENDING, CANCELLED, FAILED);
+            case PAYMENT_PENDING -> EnumSet.of(PAYMENT_COMMITTED, FAILED);
             case PAYMENT_COMMITTED -> EnumSet.of(GRANTED);
-            case GRANTED, FAILED, CANCELLED ->
-                    EnumSet.noneOf(PurchaseOrderState.class);
+            case GRANTED, FAILED, CANCELLED -> EnumSet.noneOf(PurchaseOrderState.class);
         };
     }
 }

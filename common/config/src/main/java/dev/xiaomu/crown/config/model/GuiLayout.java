@@ -17,8 +17,7 @@ public record GuiLayout(
         GuiItemTemplate filler,
         Map<String, GuiButton> buttons,
         Map<String, GuiItemTemplate> itemVariants,
-        Map<String, String> textValues
-) {
+        Map<String, String> textValues) {
     public GuiLayout {
         if (id == null || !id.matches("[a-z0-9-]{1,64}")) {
             throw new IllegalArgumentException("Invalid GUI layout ID");
@@ -26,15 +25,12 @@ public record GuiLayout(
         screenType = Objects.requireNonNull(screenType, "screenType");
         title = Objects.requireNonNull(title, "title");
         if (title.isBlank() || title.length() > 2_048) {
-            throw new IllegalArgumentException(
-                    "GUI title is blank or too long");
+            throw new IllegalArgumentException("GUI title is blank or too long");
         }
 
-        contentSlots = List.copyOf(Objects.requireNonNull(
-                contentSlots, "contentSlots"));
+        contentSlots = List.copyOf(Objects.requireNonNull(contentSlots, "contentSlots"));
         if (Set.copyOf(contentSlots).size() != contentSlots.size()) {
-            throw new IllegalArgumentException(
-                    "GUI content slots contain duplicates");
+            throw new IllegalArgumentException("GUI content slots contain duplicates");
         }
         for (int slot : contentSlots) {
             requireSlot(slot, screenType.slotCount(), "content");
@@ -45,23 +41,25 @@ public record GuiLayout(
         itemVariants = immutableItems(itemVariants);
         textValues = immutableTextValues(textValues);
 
-        Set<String> actions = switch (id) {
-            case "main" -> Set.of("shop", "warehouse", "custom", "close");
-            case "shop" -> Set.of("previous", "next", "custom", "warehouse", "close");
-            case "warehouse" -> Set.of("previous", "next", "default", "none", "shop", "close");
-            case "admin-shop" -> Set.of("previous", "next", "create", "reload", "close");
-            case "purchase-confirm" -> Set.of("preview", "confirm", "cancel", "processing");
-            case "custom-confirm" -> Set.of("preview", "confirm", "reenter", "cancel", "processing");
-            case "delete-confirm" -> Set.of("preview", "confirm", "cancel");
-            default -> buttons.keySet();
-        };
+        Set<String> actions =
+                switch (id) {
+                    case "main" -> Set.of("shop", "warehouse", "custom", "close");
+                    case "shop" -> Set.of("previous", "next", "custom", "warehouse", "close");
+                    case "warehouse" ->
+                            Set.of("previous", "next", "default", "none", "shop", "close");
+                    case "admin-shop" -> Set.of("previous", "next", "create", "reload", "close");
+                    case "purchase-confirm" -> Set.of("preview", "confirm", "cancel", "processing");
+                    case "custom-confirm" ->
+                            Set.of("preview", "confirm", "reenter", "cancel", "processing");
+                    case "delete-confirm" -> Set.of("preview", "confirm", "cancel");
+                    default -> buttons.keySet();
+                };
         for (String action : buttons.keySet()) {
             if (!actions.contains(action)) {
                 throw new IllegalArgumentException("Unsupported GUI action: " + id + "." + action);
             }
         }
-        if (Set.of("shop", "warehouse", "admin-shop").contains(id)
-                && contentSlots.isEmpty()) {
+        if (Set.of("shop", "warehouse", "admin-shop").contains(id) && contentSlots.isEmpty()) {
             throw new IllegalArgumentException("GUI content slots are empty: " + id);
         }
 
@@ -70,68 +68,65 @@ public record GuiLayout(
             requireSlot(button.slot(), screenType.slotCount(), "button");
             if (contentSlots.contains(button.slot())) {
                 throw new IllegalArgumentException(
-                        "GUI button " + button.action()
+                        "GUI button "
+                                + button.action()
                                 + " overlaps content slot "
                                 + button.slot());
             }
-            String previous = occupied.putIfAbsent(
-                    button.slot(), button.action());
-            if (previous != null
-                    && !allowedOverlay(previous, button.action())) {
+            String previous = occupied.putIfAbsent(button.slot(), button.action());
+            if (previous != null && !allowedOverlay(previous, button.action())) {
                 throw new IllegalArgumentException(
-                        "GUI buttons " + previous + " and "
-                                + button.action() + " share slot "
+                        "GUI buttons "
+                                + previous
+                                + " and "
+                                + button.action()
+                                + " share slot "
                                 + button.slot());
             }
         }
     }
 
-    private static Map<String, GuiButton> immutableButtons(
-            Map<String, GuiButton> source
-    ) {
+    private static Map<String, GuiButton> immutableButtons(Map<String, GuiButton> source) {
         Objects.requireNonNull(source, "buttons");
         var copy = new LinkedHashMap<String, GuiButton>();
-        source.forEach((key, button) -> {
-            Objects.requireNonNull(key, "button key");
-            Objects.requireNonNull(button, "button");
-            if (!key.equals(button.action())) {
-                throw new IllegalArgumentException(
-                        "GUI button key and action differ");
-            }
-            if (copy.put(key, button) != null) {
-                throw new IllegalArgumentException(
-                        "Duplicate GUI button: " + key);
-            }
-        });
+        source.forEach(
+                (key, button) -> {
+                    Objects.requireNonNull(key, "button key");
+                    Objects.requireNonNull(button, "button");
+                    if (!key.equals(button.action())) {
+                        throw new IllegalArgumentException("GUI button key and action differ");
+                    }
+                    if (copy.put(key, button) != null) {
+                        throw new IllegalArgumentException("Duplicate GUI button: " + key);
+                    }
+                });
         return Collections.unmodifiableMap(copy);
     }
 
     private static Map<String, GuiItemTemplate> immutableItems(
-            Map<String, GuiItemTemplate> source
-    ) {
+            Map<String, GuiItemTemplate> source) {
         Objects.requireNonNull(source, "itemVariants");
         var copy = new LinkedHashMap<String, GuiItemTemplate>();
-        source.forEach((key, item) -> {
-            if (key == null || !key.matches("[a-z0-9_-]{1,64}")) {
-                throw new IllegalArgumentException(
-                        "Invalid GUI item variant: " + key);
-            }
-            copy.put(key, Objects.requireNonNull(item, "item"));
-        });
+        source.forEach(
+                (key, item) -> {
+                    if (key == null || !key.matches("[a-z0-9_-]{1,64}")) {
+                        throw new IllegalArgumentException("Invalid GUI item variant: " + key);
+                    }
+                    copy.put(key, Objects.requireNonNull(item, "item"));
+                });
         return Collections.unmodifiableMap(copy);
     }
 
-    private static Map<String, String> immutableTextValues(
-            Map<String, String> source
-    ) {
+    private static Map<String, String> immutableTextValues(Map<String, String> source) {
         Objects.requireNonNull(source, "textValues");
         var copy = new LinkedHashMap<String, String>();
-        source.forEach((key, value) -> {
-            if (key == null || !key.matches("[a-z0-9][a-z0-9._-]{0,63}")) {
-                throw new IllegalArgumentException("Invalid GUI text value: " + key);
-            }
-            copy.put(key, Objects.requireNonNull(value, "text value"));
-        });
+        source.forEach(
+                (key, value) -> {
+                    if (key == null || !key.matches("[a-z0-9][a-z0-9._-]{0,63}")) {
+                        throw new IllegalArgumentException("Invalid GUI text value: " + key);
+                    }
+                    copy.put(key, Objects.requireNonNull(value, "text value"));
+                });
         return Collections.unmodifiableMap(copy);
     }
 
@@ -140,14 +135,9 @@ public record GuiLayout(
         return textValues.getOrDefault(key, key);
     }
 
-    private static void requireSlot(
-            int slot,
-            int slotCount,
-            String type
-    ) {
+    private static void requireSlot(int slot, int slotCount, String type) {
         if (slot < 0 || slot >= slotCount) {
-            throw new IllegalArgumentException(
-                    "GUI " + type + " slot is out of range: " + slot);
+            throw new IllegalArgumentException("GUI " + type + " slot is out of range: " + slot);
         }
     }
 

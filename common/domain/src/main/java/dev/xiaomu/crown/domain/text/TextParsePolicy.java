@@ -6,12 +6,10 @@ public record TextParsePolicy(
         boolean allowRgb,
         boolean allowGradient,
         int maximumSourceLength,
-        int maximumVisibleLength
-) {
+        int maximumVisibleLength) {
     public TextParsePolicy {
         if (maximumSourceLength < 1 || maximumVisibleLength < 1) {
-            throw new IllegalArgumentException(
-                    "Text length limits must be positive");
+            throw new IllegalArgumentException("Text length limits must be positive");
         }
     }
 

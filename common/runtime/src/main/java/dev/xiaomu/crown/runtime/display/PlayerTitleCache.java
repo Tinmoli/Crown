@@ -19,7 +19,7 @@ import java.util.function.Supplier;
 /**
  * Placeholder 和直接显示共用的无阻塞在线玩家缓存。
  *
- * <p>数据库读取只能由调用方在存储执行器中执行；查询方法绝不访问 JDBC。</p>
+ * <p>数据库读取只能由调用方在存储执行器中执行；查询方法绝不访问 JDBC。
  */
 public final class PlayerTitleCache {
     private final CrownRepository repository;
@@ -27,18 +27,11 @@ public final class PlayerTitleCache {
     private final Clock clock;
     private final Map<UUID, CachedPlayer> players = new ConcurrentHashMap<>();
 
-    public PlayerTitleCache(
-            CrownRepository repository,
-            Supplier<RuntimeSnapshot> snapshots
-    ) {
+    public PlayerTitleCache(CrownRepository repository, Supplier<RuntimeSnapshot> snapshots) {
         this(repository, snapshots, Clock.systemUTC());
     }
 
-    PlayerTitleCache(
-            CrownRepository repository,
-            Supplier<RuntimeSnapshot> snapshots,
-            Clock clock
-    ) {
+    PlayerTitleCache(CrownRepository repository, Supplier<RuntimeSnapshot> snapshots, Clock clock) {
         this.repository = Objects.requireNonNull(repository, "repository");
         this.snapshots = Objects.requireNonNull(snapshots, "snapshots");
         this.clock = Objects.requireNonNull(clock, "clock");
@@ -47,38 +40,51 @@ public final class PlayerTitleCache {
     /** 必须从 Crown 的存储执行器调用。 */
     public CachedPlayer load(UUID playerId, String playerName) {
         RuntimeSnapshot snapshot = snapshots.get();
-        PlayerRecord player = repository.ensurePlayer(
-                playerId,
-                playerName,
-                snapshot.core().defaultTitle().equipForNewPlayer()
-                        ? dev.xiaomu.crown.domain.player.TitleSelection.defaultTitle()
-                        : dev.xiaomu.crown.domain.player.TitleSelection.none(),
-                clock.instant());
+        PlayerRecord player =
+                repository.ensurePlayer(
+                        playerId,
+                        playerName,
+                        snapshot.core().defaultTitle().equipForNewPlayer()
+                                ? dev.xiaomu.crown.domain.player.TitleSelection.defaultTitle()
+                                : dev.xiaomu.crown.domain.player.TitleSelection.none(),
+                        clock.instant());
         ResolvedTitle title = resolve(player, snapshot, clock.instant());
-        CachedPlayer cached = new CachedPlayer(
-                player.playerId(), player.lastKnownName(),
-                player.titleCoinBalance(), title);
+        CachedPlayer cached =
+                new CachedPlayer(
+                        player.playerId(),
+                        player.lastKnownName(),
+                        player.titleCoinBalance(),
+                        title);
         players.put(playerId, cached);
         return cached;
     }
 
     public CachedPlayer get(UUID playerId) {
-        CachedPlayer cached = players.getOrDefault(
-                Objects.requireNonNull(playerId, "playerId"),
-                CachedPlayer.empty(playerId));
+        CachedPlayer cached =
+                players.getOrDefault(
+                        Objects.requireNonNull(playerId, "playerId"), CachedPlayer.empty(playerId));
         ResolvedTitle title = cached.title();
         if (title.state() == SelectionType.DEFAULT) {
             var configured = snapshots.get().core().defaultTitle();
             var content = configured.content();
-            title = configured.enabled()
-                    ? new ResolvedTitle(SelectionType.DEFAULT, null, "default",
-                            content.prefix(), content.text(), content.suffix(), null)
-                    : ResolvedTitle.none();
+            title =
+                    configured.enabled()
+                            ? new ResolvedTitle(
+                                    SelectionType.DEFAULT,
+                                    null,
+                                    "default",
+                                    content.prefix(),
+                                    content.text(),
+                                    content.suffix(),
+                                    null)
+                            : ResolvedTitle.none();
         } else if (title.expiredAt(clock.instant())) {
             title = ResolvedTitle.none();
         }
-        return title == cached.title() ? cached : new CachedPlayer(
-                cached.playerId(), cached.playerName(), cached.titleCoinBalance(), title);
+        return title == cached.title()
+                ? cached
+                : new CachedPlayer(
+                        cached.playerId(), cached.playerName(), cached.titleCoinBalance(), title);
     }
 
     public void put(CachedPlayer player) {
@@ -93,36 +99,35 @@ public final class PlayerTitleCache {
         players.clear();
     }
 
-    private ResolvedTitle resolve(
-            PlayerRecord player,
-            RuntimeSnapshot snapshot,
-            Instant now
-    ) {
+    private ResolvedTitle resolve(PlayerRecord player, RuntimeSnapshot snapshot, Instant now) {
         return switch (player.selection().type()) {
             case NONE -> ResolvedTitle.none();
             case DEFAULT -> {
                 var configured = snapshot.core().defaultTitle();
                 var content = configured.content();
                 yield new ResolvedTitle(
-                        SelectionType.DEFAULT, null, "default",
-                        content.prefix(), content.text(), content.suffix(), null);
+                        SelectionType.DEFAULT,
+                        null,
+                        "default",
+                        content.prefix(),
+                        content.text(),
+                        content.suffix(),
+                        null);
             }
-            case OWNED -> player.selection().ownedEntryId()
-                    .flatMap(repository::findOwnedTitle)
-                    .filter(entry -> entry.playerId().equals(player.playerId()))
-                    .filter(entry -> entry.status() == OwnedTitleStatus.ACTIVE)
-                    .filter(entry -> !entry.expiredAt(now))
-                    .map(entry -> fromOwned(entry, snapshot))
-                    .orElseGet(ResolvedTitle::none);
+            case OWNED ->
+                    player.selection()
+                            .ownedEntryId()
+                            .flatMap(repository::findOwnedTitle)
+                            .filter(entry -> entry.playerId().equals(player.playerId()))
+                            .filter(entry -> entry.status() == OwnedTitleStatus.ACTIVE)
+                            .filter(entry -> !entry.expiredAt(now))
+                            .map(entry -> fromOwned(entry, snapshot))
+                            .orElseGet(ResolvedTitle::none);
         };
     }
 
-    private static ResolvedTitle fromOwned(
-            OwnedTitleRecord entry,
-            RuntimeSnapshot snapshot
-    ) {
-        CrownTextParser parser = new CrownTextParser(
-                snapshot.core().safety().serverTextPolicy());
+    private static ResolvedTitle fromOwned(OwnedTitleRecord entry, RuntimeSnapshot snapshot) {
+        CrownTextParser parser = new CrownTextParser(snapshot.core().safety().serverTextPolicy());
         return new ResolvedTitle(
                 SelectionType.OWNED,
                 entry.entryId(),
@@ -134,11 +139,7 @@ public final class PlayerTitleCache {
     }
 
     public record CachedPlayer(
-            UUID playerId,
-            String playerName,
-            long titleCoinBalance,
-            ResolvedTitle title
-    ) {
+            UUID playerId, String playerName, long titleCoinBalance, ResolvedTitle title) {
         public CachedPlayer {
             playerId = Objects.requireNonNull(playerId, "playerId");
             playerName = Objects.requireNonNull(playerName, "playerName");

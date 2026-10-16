@@ -22,8 +22,7 @@ public record OwnedTitleRecord(
         UUID purchaseOrderId,
         OwnedTitleStatus status,
         Instant deletedAt,
-        String deletedBy
-) {
+        String deletedBy) {
     public OwnedTitleRecord {
         entryId = Objects.requireNonNull(entryId, "entryId");
         playerId = Objects.requireNonNull(playerId, "playerId");
@@ -35,18 +34,13 @@ public record OwnedTitleRecord(
         acquiredAt = Objects.requireNonNull(acquiredAt, "acquiredAt");
         status = Objects.requireNonNull(status, "status");
         if (expiresAt != null && !expiresAt.isAfter(acquiredAt)) {
-            throw new IllegalArgumentException(
-                    "Title expiry must follow acquisition");
+            throw new IllegalArgumentException("Title expiry must follow acquisition");
         }
-        if (status == OwnedTitleStatus.ACTIVE
-                && (deletedAt != null || deletedBy != null)) {
-            throw new IllegalArgumentException(
-                    "Active title cannot have deletion metadata");
+        if (status == OwnedTitleStatus.ACTIVE && (deletedAt != null || deletedBy != null)) {
+            throw new IllegalArgumentException("Active title cannot have deletion metadata");
         }
-        if (status == OwnedTitleStatus.DELETED
-                && (deletedAt == null || deletedBy == null)) {
-            throw new IllegalArgumentException(
-                    "Deleted title requires deletion metadata");
+        if (status == OwnedTitleStatus.DELETED && (deletedAt == null || deletedBy == null)) {
+            throw new IllegalArgumentException("Deleted title requires deletion metadata");
         }
         if (deletedBy != null) {
             deletedBy = requireSource(deletedBy, "deletedBy", false);
@@ -70,11 +64,7 @@ public record OwnedTitleRecord(
         return expiresAt != null && !instant.isBefore(expiresAt);
     }
 
-    private static String requireSource(
-            String value,
-            String name,
-            boolean allowEmpty
-    ) {
+    private static String requireSource(String value, String name, boolean allowEmpty) {
         Objects.requireNonNull(value, name);
         if ((!allowEmpty && value.isBlank())
                 || value.length() > 16_384

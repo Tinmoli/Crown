@@ -12,14 +12,11 @@ public record DurationPolicy(DurationType type, int days) {
     public DurationPolicy {
         type = Objects.requireNonNull(type, "type");
         if (type == DurationType.PERMANENT && days != 0) {
-            throw new IllegalArgumentException(
-                    "Permanent duration must have zero days");
+            throw new IllegalArgumentException("Permanent duration must have zero days");
         }
-        if (type == DurationType.LIMITED
-                && (days < 1 || days > MAXIMUM_DAYS)) {
+        if (type == DurationType.LIMITED && (days < 1 || days > MAXIMUM_DAYS)) {
             throw new IllegalArgumentException(
-                    "Limited duration days must be between 1 and "
-                            + MAXIMUM_DAYS);
+                    "Limited duration days must be between 1 and " + MAXIMUM_DAYS);
         }
     }
 

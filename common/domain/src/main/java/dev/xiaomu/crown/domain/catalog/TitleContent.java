@@ -11,8 +11,7 @@ public record TitleContent(
         String suffixSource,
         StyledText prefix,
         StyledText text,
-        StyledText suffix
-) {
+        StyledText suffix) {
     public TitleContent {
         prefixSource = Objects.requireNonNull(prefixSource, "prefixSource");
         textSource = Objects.requireNonNull(textSource, "textSource");
@@ -21,8 +20,7 @@ public record TitleContent(
         text = Objects.requireNonNull(text, "text");
         suffix = Objects.requireNonNull(suffix, "suffix");
         if (text.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "Title body must contain visible text");
+            throw new IllegalArgumentException("Title body must contain visible text");
         }
     }
 

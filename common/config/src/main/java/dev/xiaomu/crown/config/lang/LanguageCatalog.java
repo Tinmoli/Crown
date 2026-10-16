@@ -9,17 +9,16 @@ public final class LanguageCatalog {
     private final String selectedLanguage;
     private final Map<String, Map<String, String>> languages;
 
-    public LanguageCatalog(
-            String selectedLanguage,
-            Map<String, Map<String, String>> languages
-    ) {
+    public LanguageCatalog(String selectedLanguage, Map<String, Map<String, String>> languages) {
         this.selectedLanguage = requireLanguageId(selectedLanguage);
         Objects.requireNonNull(languages, "languages");
 
         var copy = new LinkedHashMap<String, Map<String, String>>();
-        languages.forEach((id, entries) -> copy.put(
-                requireLanguageId(id),
-                Map.copyOf(Objects.requireNonNull(entries, "entries"))));
+        languages.forEach(
+                (id, entries) ->
+                        copy.put(
+                                requireLanguageId(id),
+                                Map.copyOf(Objects.requireNonNull(entries, "entries"))));
         this.languages = Map.copyOf(copy);
     }
 
@@ -53,8 +52,7 @@ public final class LanguageCatalog {
     public static String requireLanguageId(String value) {
         Objects.requireNonNull(value, "language");
         if (!value.matches("[a-z0-9_-]{2,32}")) {
-            throw new IllegalArgumentException(
-                    "Invalid language ID: " + value);
+            throw new IllegalArgumentException("Invalid language ID: " + value);
         }
         return value;
     }

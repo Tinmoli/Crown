@@ -13,16 +13,13 @@ public record LanguageSyncReport(
         boolean created,
         boolean recovered,
         Path backup,
-        List<String> changedKeys
-) {
+        List<String> changedKeys) {
     public LanguageSyncReport {
         file = Objects.requireNonNull(file, "file");
         if (added < 0 || removed < 0) {
-            throw new IllegalArgumentException(
-                    "Language change counts cannot be negative");
+            throw new IllegalArgumentException("Language change counts cannot be negative");
         }
-        changedKeys = List.copyOf(Objects.requireNonNull(
-                changedKeys, "changedKeys"));
+        changedKeys = List.copyOf(Objects.requireNonNull(changedKeys, "changedKeys"));
     }
 
     public Optional<Path> backupFile() {

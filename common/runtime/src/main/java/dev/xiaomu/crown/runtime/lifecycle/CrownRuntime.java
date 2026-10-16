@@ -24,9 +24,8 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * Crown 服务端运行时的组合根。
  *
- * <p>按 config → storage backend → async executor →
- * purchase service 的顺序装配依赖，并在关闭时按相反顺序释放资源。启动
- * 全程 fail-fast：任一阶段失败都会回滚已经创建的资源，避免半初始化状态。</p>
+ * <p>按 config → storage backend → async executor → purchase service 的顺序装配依赖，并在关闭时按相反顺序释放资源。启动 全程
+ * fail-fast：任一阶段失败都会回滚已经创建的资源，避免半初始化状态。
  */
 public final class CrownRuntime implements AutoCloseable {
     private final RuntimeSnapshotManager snapshots;
@@ -37,10 +36,7 @@ public final class CrownRuntime implements AutoCloseable {
     private final Object reloadMonitor = new Object();
     private CompletableFuture<ConfigurationLoadReport> reloadInFlight;
 
-    public CrownRuntime(
-            Path configRoot,
-            Path gameDirectory
-    ) {
+    public CrownRuntime(Path configRoot, Path gameDirectory) {
         this(
                 new RuntimeSnapshotManager(
                         Objects.requireNonNull(configRoot, "configRoot"),
@@ -54,55 +50,46 @@ public final class CrownRuntime implements AutoCloseable {
             RuntimeSnapshotManager snapshots,
             StorageBackendFactory backendFactory,
             AsyncStorageExecutorFactory executorFactory,
-            Path gameDirectory
-    ) {
+            Path gameDirectory) {
         this.snapshots = Objects.requireNonNull(snapshots, "snapshots");
-        this.backendFactory = Objects.requireNonNull(
-                backendFactory, "backendFactory");
-        this.executorFactory = Objects.requireNonNull(
-                executorFactory, "executorFactory");
-        this.gameDirectory = Objects.requireNonNull(
-                gameDirectory, "gameDirectory");
+        this.backendFactory = Objects.requireNonNull(backendFactory, "backendFactory");
+        this.executorFactory = Objects.requireNonNull(executorFactory, "executorFactory");
+        this.gameDirectory = Objects.requireNonNull(gameDirectory, "gameDirectory");
     }
 
     /** 启动运行时并返回配置加载报告，供上层输出同步/迁移日志。 */
     public ConfigurationLoadReport start() throws IOException {
         if (active.get() != null) {
-            throw new IllegalStateException(
-                    "Crown runtime is already started");
+            throw new IllegalStateException("Crown runtime is already started");
         }
         ConfigurationLoadReport report = snapshots.start();
         Active started = assemble(report.snapshot());
         if (!active.compareAndSet(null, started)) {
             closeQuietly(started);
-            throw new IllegalStateException(
-                    "Crown runtime is already started");
+            throw new IllegalStateException("Crown runtime is already started");
         }
         return report;
     }
 
-    /**
-     * 重载商品、语言和 GUI 配置；数据库连接设置需要重启，
-     * 拒绝在有购买操作运行时切换存储。
-     */
+    /** 重载商品、语言和 GUI 配置；数据库连接设置需要重启， 拒绝在有购买操作运行时切换存储。 */
     public synchronized ConfigurationLoadReport reload() throws IOException {
         require();
         StorageSettings storage = snapshot().storage();
-        return snapshots.reload(candidate -> {
-            if (!storage.equals(candidate.storage())) {
-                throw new IllegalArgumentException("Storage settings require a server restart");
-            }
-        });
+        return snapshots.reload(
+                candidate -> {
+                    if (!storage.equals(candidate.storage())) {
+                        throw new IllegalArgumentException(
+                                "Storage settings require a server restart");
+                    }
+                });
     }
 
     /**
      * 在提供的后台执行器上执行一次重载；重叠请求共享同一个结果。
      *
-     * <p>调用方应在完成回调中自行切回平台主线程更新 GUI 或发送消息。</p>
+     * <p>调用方应在完成回调中自行切回平台主线程更新 GUI 或发送消息。
      */
-    public CompletableFuture<ConfigurationLoadReport> reloadAsync(
-            Executor executor
-    ) {
+    public CompletableFuture<ConfigurationLoadReport> reloadAsync(Executor executor) {
         Objects.requireNonNull(executor, "executor");
         synchronized (reloadMonitor) {
             CompletableFuture<ConfigurationLoadReport> current = reloadInFlight;
@@ -110,21 +97,25 @@ public final class CrownRuntime implements AutoCloseable {
                 return current;
             }
 
-            var created = CompletableFuture.supplyAsync(() -> {
-                try {
-                    return reload();
-                } catch (IOException exception) {
-                    throw new ReloadException(exception);
-                }
-            }, executor);
+            var created =
+                    CompletableFuture.supplyAsync(
+                            () -> {
+                                try {
+                                    return reload();
+                                } catch (IOException exception) {
+                                    throw new ReloadException(exception);
+                                }
+                            },
+                            executor);
             reloadInFlight = created;
-            created.whenComplete((ignored, failure) -> {
-                synchronized (reloadMonitor) {
-                    if (reloadInFlight == created) {
-                        reloadInFlight = null;
-                    }
-                }
-            });
+            created.whenComplete(
+                    (ignored, failure) -> {
+                        synchronized (reloadMonitor) {
+                            if (reloadInFlight == created) {
+                                reloadInFlight = null;
+                            }
+                        }
+                    });
             return created;
         }
     }
@@ -182,22 +173,22 @@ public final class CrownRuntime implements AutoCloseable {
         PlayerOperationQueue playerOperations = null;
         boolean assembled = false;
         try {
-            backend = backendFactory.openConfigured(
-                    gameDirectory, storage);
+            backend = backendFactory.openConfigured(gameDirectory, storage);
             executor = executorFactory.create(storage);
             playerOperations = new PlayerOperationQueue();
             UnifiedPurchaseService purchaseService =
-                    new UnifiedPurchaseService(
-                            backend.repository(),
+                    new UnifiedPurchaseService(backend.repository(), executor, playerOperations);
+            PlayerTitleCache playerTitleCache =
+                    new PlayerTitleCache(backend.repository(), snapshots::requireSnapshot);
+            TitleWardrobeService wardrobe = new TitleWardrobeService(backend.repository());
+            Active active =
+                    new Active(
+                            backend,
                             executor,
-                            playerOperations);
-            PlayerTitleCache playerTitleCache = new PlayerTitleCache(
-                    backend.repository(), snapshots::requireSnapshot);
-            TitleWardrobeService wardrobe =
-                    new TitleWardrobeService(backend.repository());
-            Active active = new Active(
-                    backend, executor, playerOperations,
-                    purchaseService, playerTitleCache, wardrobe);
+                            playerOperations,
+                            purchaseService,
+                            playerTitleCache,
+                            wardrobe);
             assembled = true;
             return active;
         } finally {
@@ -212,8 +203,7 @@ public final class CrownRuntime implements AutoCloseable {
     private Active require() {
         Active current = active.get();
         if (current == null) {
-            throw new IllegalStateException(
-                    "Crown runtime is not started");
+            throw new IllegalStateException("Crown runtime is not started");
         }
         return current;
     }
@@ -253,7 +243,5 @@ public final class CrownRuntime implements AutoCloseable {
             PlayerOperationQueue playerOperations,
             UnifiedPurchaseService purchaseService,
             PlayerTitleCache playerTitleCache,
-            TitleWardrobeService wardrobe
-    ) {
-    }
+            TitleWardrobeService wardrobe) {}
 }
