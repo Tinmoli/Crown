@@ -1,7 +1,5 @@
 # Crown
 
-从仓库根目录运行 `cd 26.2` 后再编译。此文件夹也可以单独复制出去独立编译。
-
 本分支：**Minecraft 26.2**（`26.2`）。各版本分支独立维护，本分支不包含其他版本源码。
 
 编译：`./gradlew build`（Windows 使用 `./gradlew.bat build`），生成的模组位于 `build/libs/`。
