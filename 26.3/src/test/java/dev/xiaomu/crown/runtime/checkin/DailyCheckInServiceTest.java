@@ -62,6 +62,7 @@ final class DailyCheckInServiceTest {
             Files.writeString(
                     config,
                     Files.readString(config)
+                            .replace("\r\n", "\n")
                             .replace("check-in:\n  enabled: true", "check-in:\n  enabled: false"));
             runtime.reload();
             assertThrows(
