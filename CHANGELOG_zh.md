@@ -4,7 +4,7 @@ English version: [CHANGELOG.md](CHANGELOG.md)
 
 ## 未发布
 
-- 整理为 Minecraft 26.1.2 独立项目，源码和测试统一到 src/，移除其他版本及跨项目依赖。
+- 整理为 Minecraft 26.1.2 独立项目，源码统一到 src/，移除其他版本及跨项目依赖。
 
 - 新增 Minecraft 26.3 支持，构建工具链更新至 Gradle 9.6 / Loom 1.17。
 
